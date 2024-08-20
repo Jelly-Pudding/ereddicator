@@ -1,4 +1,4 @@
-# Reddicator
+# Ereddicator
 This Python script allows you to wipe your Reddit history. It replaces each comment and post with random text before deleting them.
 
 ## Installation
