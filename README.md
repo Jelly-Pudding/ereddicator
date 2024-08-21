@@ -6,7 +6,7 @@ Note: The script replaces each comment and post with random text before deletion
 ## Instructions (for Windows Users)
 If you don't want to install Python, you can use the `.exe` version of the script:
 
-1. Download the latest `.zip` file from the [Releases]((https://github.com/Jelly-Pudding/ereddicator/releases/)) page.
+1. Download the latest `.zip` file from the [Releases](https://github.com/Jelly-Pudding/ereddicator/releases/) page.
 2. Extract the contents of the `.zip` file to a folder.
 3. Open the `reddit_credentials.ini` file in a text editor.
 4. Add your Reddit API credentials to the file in the following format:
