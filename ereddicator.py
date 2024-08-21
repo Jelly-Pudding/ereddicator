@@ -5,6 +5,7 @@ import configparser
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 import signal
+import sys
 import praw
 from prawcore import ResponseException
 
@@ -28,20 +29,29 @@ def generate_random_text():
 
     return ' '.join(words)
 
-def read_credentials(file_path='reddit_credentials.ini'):
-    if not os.path.exists(file_path):
-        print(f"Credentials file not found: {file_path}")
-        print("Please create a file named 'reddit_credentials.ini' with the following format:")
-        print("[reddit]\nclient_id = YOUR_CLIENT_ID\nclient_secret = YOUR_CLIENT_SECRET\nusername = YOUR_USERNAME\npassword = YOUR_PASSWORD")
-        exit(1)
+def read_credentials(file_path='reddit_credentials.ini', is_exe=False):
+    if is_exe:
+        # Prompt the user to input credentials
+        print("Please enter your Reddit API credentials. Please see the README.md file if you need help.")
+        client_id = input("Client ID: ").strip()
+        client_secret = input("Client Secret: ").strip()
+        username = input("Username: ").strip()
+        password = input("Password: ").strip()        
+        return client_id, client_secret, username, password
+    else:
+        if not os.path.exists(file_path):
+            print(f"Credentials file not found: {file_path}")
+            print("Please create a file named 'reddit_credentials.ini' with the following format:")
+            print("[reddit]\nclient_id = YOUR_CLIENT_ID\nclient_secret = YOUR_CLIENT_SECRET\nusername = YOUR_USERNAME\npassword = YOUR_PASSWORD")
+            sys.exit(1)
 
-    config = configparser.ConfigParser()
-    config.read(file_path)
+        config = configparser.ConfigParser()
+        config.read(file_path)
 
-    return (config['reddit']['client_id'],
-            config['reddit']['client_secret'],
-            config['reddit']['username'],
-            config['reddit']['password'])
+        return (config['reddit']['client_id'],
+                config['reddit']['client_secret'],
+                config['reddit']['username'],
+                config['reddit']['password'])
 
 def process_item(item, item_type, processed_counts, max_retries=5):
     for attempt in range(max_retries):
@@ -187,12 +197,13 @@ def delete_all_content(reddit, username):
     return processed_counts
 
 def main():
-    client_id, client_secret, username, password = read_credentials()
+    is_exe = getattr(sys, 'frozen', False)
+    client_id, client_secret, username, password = read_credentials(is_exe=is_exe)
 
     confirmation = input("This will remove ALL your Reddit content including comments, posts, saved items, votes, and hidden posts. Do you really want to continue? (yes/no): ")
     if confirmation.lower() not in ['yes', 'y']:
         print("Script aborted.")
-        exit()
+        sys.exit(1)
 
     try:
         reddit = praw.Reddit(
@@ -206,7 +217,7 @@ def main():
         reddit.user.me()  # Check if authentication succeeded
     except Exception as e:
         print(f"Error: Could not authenticate with the provided credentials. {str(e)}")
-        exit()
+        sys.exit(1)
 
     run_count = 0
     try:
@@ -226,7 +237,7 @@ def main():
 
             if all(count == 0 for count in processed_counts.values()):
                 print("\nNo content was destroyed in this run.")
-                print("Script execution completed.")
+                print("\n\nScript execution completed.")
                 break
             else:
                 print("\nSome content was destroyed. Running the script again in 7 seconds...")
@@ -238,6 +249,9 @@ def main():
         print(f"\nTotal content destroyed across {run_count} {'run' if run_count == 1 else 'runs'}:")
         for item_type, count in TOTAL_PROCESSED.items():
             print(f"{item_type.capitalize()}: {count}")
+        if is_exe:
+            print("\nPress Enter to exit...")
+            input()
 
 if __name__ == "__main__":
     main()
