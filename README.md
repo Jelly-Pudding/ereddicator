@@ -1,5 +1,7 @@
 # Ereddicator
-This Python script allows you to wipe your Reddit history. It replaces each comment and post with random text before deleting them.
+This Python script allows you to delete all your Reddit comments, posts, saved items, upvotes, downvotes, and hidden posts. However, upvotes and downvotes on archived posts will remain. There is no way to undo them. You can disable "make my votes public" in your preferences: https://www.reddit.com/prefs/
+
+Note: The script replaces each comment and post with random text before deletion as an added measure against the original content being read.
 
 ## Installation
 1. Git clone this repository: `git clone https://github.com/Jelly-Pudding/ereddicator.git`
