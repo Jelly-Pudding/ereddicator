@@ -65,7 +65,6 @@ def process_item(item, item_type, processed_counts, max_retries=5):
                 item.unsave()
             elif item_type in ['upvotes', 'downvotes']:
                 print(f"Attempting to clear {item_type[:-1]} on item: '{getattr(item, 'id', 'N/A')}'")
-                print(f"Item type: {type(item)}")
                 item.clear_vote()
                 print(f"Successfully cleared {item_type[:-1]} on item: '{getattr(item, 'id', 'N/A')}'")
             elif item_type == 'hidden':
@@ -91,7 +90,7 @@ def process_item(item, item_type, processed_counts, max_retries=5):
 def process_batch(items, item_type, batch_number, total_processed, total_items, processed_counts):
     print(f"Starting batch {batch_number} for {item_type}")
 
-    with ThreadPoolExecutor(max_workers=1) as executor:
+    with ThreadPoolExecutor(max_workers=3) as executor:
         futures = [executor.submit(process_item, item, item_type, processed_counts) for item in items]
         for future in as_completed(futures):
             if future.result():
