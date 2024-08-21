@@ -15,7 +15,7 @@ If you don't want to install Python, you can use the `.exe` version of the scrip
 - The client_secret is labeled "secret"
 2. Download the latest `.zip` file from the [Releases](https://github.com/Jelly-Pudding/ereddicator/releases/) page.
 3. Extract the contents of the `.zip` file to a folder.
-6. Run the `ereddicator.exe` file by double-clicking it. A console window will open. Follow its instructions.
+6. Run the `ereddicator.exe` file by double-clicking it. You may see `Windows protected your PC`. Just click on `More Info` and then click `Run anyway`. A console window will open. Follow its instructions.
 
 ## Instructions (for Python Users)
 
