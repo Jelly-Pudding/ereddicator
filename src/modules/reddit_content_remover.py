@@ -25,7 +25,8 @@ class RedditContentRemover:
         """
         self.reddit = reddit
         self.username = username
-        self.total_processed = {k: 0 for k in ["comments", "posts", "saved", "upvotes", "downvotes", "hidden"]}
+        self.total_processed_dict = {k: 0 for k in ["comments", "posts", "saved", "upvotes", "downvotes", "hidden"]}
+        self.interrupt_flag = False
 
     @staticmethod
     def generate_random_text() -> str:
@@ -59,6 +60,8 @@ class RedditContentRemover:
             bool: True if the item was successfully processed, False otherwise.
         """
         for attempt in range(max_retries):
+            if self.interrupt_flag:
+                return False
             try:
                 if item_type == "comments":
                     original_content = item.body
@@ -67,7 +70,6 @@ class RedditContentRemover:
                     item.edit(random_text)
                     print(f"Deleting comment: '{original_content[:25]}...'")
                     item.delete()
-                    print("comment should be deleted?????")
                 elif item_type == "posts":
                     original_content = item.title
                     random_text = self.generate_random_text()
@@ -101,7 +103,10 @@ class RedditContentRemover:
                 if attempt < max_retries - 1:
                     sleep_time = (2 ** attempt) + (random.randint(0, 1000) / 1000)
                     print(f"\nAttempt {attempt + 1} failed. Retrying in {sleep_time:.2f} seconds...")
-                    time.sleep(sleep_time)
+                    for _ in range(int(sleep_time * 10)):  # Check interrupt flag every 0.1 seconds
+                        if self.interrupt_flag:
+                            return False
+                        time.sleep(0.1)
                 else:
                     print(f"Failed to process {item_type} after {max_retries} attempts.")
         return False
@@ -129,11 +134,18 @@ class RedditContentRemover:
         with ThreadPoolExecutor(max_workers=3) as executor:
             futures = [executor.submit(self.process_item, item, item_type, processed_counts) for item in items]
             for future in as_completed(futures):
+                if self.interrupt_flag:
+                    executor.shutdown(wait=False)
+                    return total_processed
                 if future.result():
                     total_processed += 1
+
         print(f"Progress: {total_processed}/{total_items} {item_type} processed so far.")
         print(f"Finished batch {batch_number} for {item_type}. Sleeping for five seconds...")
-        time.sleep(5)
+        for _ in range(50):  # Check interrupt flag every 0.1 seconds
+            if self.interrupt_flag:
+                return total_processed
+            time.sleep(0.1)
         return total_processed
 
     def process_items_in_batches(self, items: List[Union[praw.models.Comment, praw.models.Submission]],
@@ -174,7 +186,7 @@ class RedditContentRemover:
     def fetch_items(item_listing: Callable[..., praw.models.ListingGenerator],
                     sort_type: str) -> List[Union[praw.models.Comment, praw.models.Submission]]:
         """
-        Fetch Reddit items based on the provided listing and sort type.
+        Fetch Reddit items (comments and submissions) based on the provided listing and sort type.
 
         Args:
             item_listing (Callable[..., praw.models.ListingGenerator]):
@@ -187,7 +199,7 @@ class RedditContentRemover:
         """
         if sort_type in ["controversial", "top"]:
             return list(item_listing(time_filter="all", limit=None))
-        # 'new' and 'hot' don't use time_filter.
+        # 'new' and 'hot' do not use use 'time_filter'.
         return list(item_listing(limit=None))
 
     def delete_all_content(self) -> Dict[str, int]:
@@ -223,43 +235,43 @@ class RedditContentRemover:
                 "hidden": set()
             }
 
-            # Fetch comments and posts
-            for sort_type in ['controversial', 'top', 'new', 'hot']:
+            # Fetch comments and posts...
+            for sort_type in ["controversial", "top", "new", "hot"]:
                 print(f"Fetching comments sorted by {sort_type}...")
-                items['comments'].update(self.fetch_items(getattr(redditor.comments, sort_type), sort_type))
+                items["comments"].update(self.fetch_items(getattr(redditor.comments, sort_type), sort_type))
                 print(f"Total unique comments found so far: {len(items['comments'])}")
 
                 print(f"Fetching posts sorted by {sort_type}...")
-                items['posts'].update(self.fetch_items(getattr(redditor.submissions, sort_type), sort_type))
+                items["posts"].update(self.fetch_items(getattr(redditor.submissions, sort_type), sort_type))
                 print(f"Total unique posts found so far: {len(items['posts'])}")
 
-            # Fetch other content types
+            # Fetch other content types...
             print("Fetching saved content...")
-            items['saved'] = set(self.reddit.user.me().saved(limit=None))
+            items["saved"] = set(self.reddit.user.me().saved(limit=None))
             print(f"Total saved items found: {len(items['saved'])}")
 
             print("Fetching upvoted content...")
-            items['upvotes'] = set(self.reddit.user.me().upvoted(limit=None))
+            items["upvotes"] = set(self.reddit.user.me().upvoted(limit=None))
             print(f"Total upvoted items found: {len(items['upvotes'])}")
 
             print("Fetching downvoted content...")
-            items['downvotes'] = set(self.reddit.user.me().downvoted(limit=None))
+            items["downvotes"] = set(self.reddit.user.me().downvoted(limit=None))
             print(f"Total downvoted items found: {len(items['downvotes'])}")
 
             print("Fetching hidden content...")
-            items['hidden'] = set(self.reddit.user.me().hidden(limit=None))
+            items["hidden"] = set(self.reddit.user.me().hidden(limit=None))
             print(f"Total hidden items found: {len(items['hidden'])}")
 
             for item_type, item_set in items.items():
+                if self.interrupt_flag:
+                    break
                 total_items = len(item_set)
                 print(f"Processing {total_items} {item_type}...")
                 self.process_items_in_batches(list(item_set), item_type, total_items, processed_counts)
 
-        except SystemExit:
-            raise  # Re-raise the SystemExit exception to be caught in the main function
         finally:
-            # Update self.total_processed regardless of whether an exception occurred.
+            # Update self.total_processed_dict regardless of whether an exception occurred.
             for item_type, count in processed_counts.items():
-                self.total_processed[item_type] += count
+                self.total_processed_dict[item_type] += count
 
         return processed_counts
