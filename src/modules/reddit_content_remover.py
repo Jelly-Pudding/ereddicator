@@ -3,6 +3,7 @@ import string
 import time
 from typing import Dict, List, Union, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from modules.user_preferences import UserPreferences
 import praw
 from prawcore import ResponseException
 
@@ -15,16 +16,18 @@ class RedditContentRemover:
     including comments, posts, saved items, upvotes, downvotes, and hidden posts.
     """
 
-    def __init__(self, reddit: praw.Reddit, username: str):
+    def __init__(self, reddit: praw.Reddit, username: str, preferences: UserPreferences):
         """
         Initialise the RedditContentRemover instance.
 
         Args:
             reddit (praw.Reddit): An authenticated Reddit instance.
             username (str): The username of the Reddit account.
+            preferences (UserPreferences): User preferences for content deletion.
         """
         self.reddit = reddit
         self.username = username
+        self.preferences = preferences
         self.total_processed_dict = {k: 0 for k in ["comments", "posts", "saved", "upvotes", "downvotes", "hidden"]}
         self.interrupt_flag = False
 
@@ -43,6 +46,28 @@ class RedditContentRemover:
             word = "".join(random.choices(string.ascii_lowercase, k=word_length))
             words.append(word)
         return " ".join(words)
+
+    def get_item_info(self, item: Union[praw.models.Comment, praw.models.Submission], item_type: str) -> str:
+        """
+        Get a string representation of the item for logging purposes.
+        
+        Args:
+            item (Union[praw.models.Comment, praw.models.Submission]): The Reddit item.
+            item_type (str): The type of the item.
+        
+        Returns:
+            str: A string representation of the item.
+        """
+        try:
+            if isinstance(item, praw.models.Comment):
+                return f"Comment '{item.body[:25]}...' in r/{item.subreddit.display_name}"
+            elif isinstance(item, praw.models.Submission):
+                return f"Post '{item.title[:25]}...' in r/{item.subreddit.display_name}"
+            else:
+                # Just in case the item is not a comment or post.
+                return f"{item_type.capitalize()} item (ID: {item.id}) of type {type(item).__name__}"
+        except AttributeError:
+            return f"{item_type.capitalize()} item (ID: {getattr(item, 'id', 'N/A')})"
 
     def process_item(self, item: Union[praw.models.Comment, praw.models.Submission],
                      item_type: str, processed_counts: Dict[str, int], max_retries: int = 5) -> bool:
@@ -63,29 +88,32 @@ class RedditContentRemover:
             if self.interrupt_flag:
                 return False
             try:
+                item_info = self.get_item_info(item, item_type)
+
                 if item_type == "comments":
-                    original_content = item.body
                     random_text = self.generate_random_text()
-                    print(f"Replacing original comment '{original_content[:25]}...' with random text.")
+                    print(f"Replacing original comment '{item_info}' with random text.")
                     item.edit(random_text)
-                    print(f"Deleting comment: '{original_content[:25]}...'")
+                    print(f"Deleting comment: '{item_info}'")
                     item.delete()
                 elif item_type == "posts":
-                    original_content = item.title
-                    random_text = self.generate_random_text()
-                    print(f"Replacing original post '{original_content[:25]}...' with random text.")
-                    item.edit(random_text)
-                    print(f"Deleting post: '{original_content[:25]}...'")
+                    if item.is_self:
+                        random_text = self.generate_random_text()
+                        print(f"Replacing content of 'Text {item_info}' with random text.")
+                        item.edit(random_text)
+                    else:
+                        print(f"It is impossible to edit content of 'Link {item_info}'.")
+                    print(f"Deleting post: '{item_info}'")
                     item.delete()
                 elif item_type == "saved":
-                    print(f"Unsaving item: '{getattr(item, 'id', 'N/A')}'")
+                    print(f"Unsaving item: {item_info}")
                     item.unsave()
                 elif item_type in ["upvotes", "downvotes"]:
-                    print(f"Attempting to clear {item_type[:-1]} on item: '{getattr(item, 'id', 'N/A')}'")
+                    print(f"Attempting to clear {item_type[:-1]} on item: {item_info}")
                     item.clear_vote()
-                    print(f"Successfully cleared {item_type[:-1]} on item: '{getattr(item, 'id', 'N/A')}'")
+                    print(f"Successfully cleared {item_type[:-1]} on item: {item_info}")
                 elif item_type == "hidden":
-                    print(f"Unhiding post: '{getattr(item, 'id', 'N/A')}'")
+                    print(f"Unhiding post: {item_info}")
                     item.unhide()
                 processed_counts[item_type] += 1
                 return True
@@ -211,9 +239,6 @@ class RedditContentRemover:
 
         Returns:
             Dict[str, int]: A dictionary containing the count of processed items for each content type.
-
-        Raises:
-            SystemExit: If the process is interrupted.
         """
         processed_counts = {
             "comments": 0,
@@ -237,37 +262,61 @@ class RedditContentRemover:
 
             # Fetch comments and posts...
             for sort_type in ["controversial", "top", "new", "hot"]:
-                print(f"Fetching comments sorted by {sort_type}...")
-                items["comments"].update(self.fetch_items(getattr(redditor.comments, sort_type), sort_type))
-                print(f"Total unique comments found so far: {len(items['comments'])}")
+                if self.preferences.delete_comments:
+                    print(f"Fetching comments sorted by {sort_type}...")
+                    comments = self.fetch_items(getattr(redditor.comments, sort_type), sort_type)
+                    if self.preferences.comment_karma_threshold is not None:
+                        comments = [c for c in comments if c.score < self.preferences.comment_karma_threshold]
+                    items["comments"].update(comments)
+                    print(f"Total unique comments found so far: {len(items['comments'])}")
 
-                print(f"Fetching posts sorted by {sort_type}...")
-                items["posts"].update(self.fetch_items(getattr(redditor.submissions, sort_type), sort_type))
-                print(f"Total unique posts found so far: {len(items['posts'])}")
+                if self.preferences.delete_posts:
+                    print(f"Fetching posts sorted by {sort_type}...")
+                    posts = self.fetch_items(getattr(redditor.submissions, sort_type), sort_type)
+                    if self.preferences.post_karma_threshold is not None:
+                        posts = [p for p in posts if p.score < self.preferences.post_karma_threshold]
+                    items["posts"].update(posts)
+                    print(f"Total unique posts found so far: {len(items['posts'])}")
 
-            # Fetch other content types...
-            print("Fetching saved content...")
-            items["saved"] = set(self.reddit.user.me().saved(limit=None))
-            print(f"Total saved items found: {len(items['saved'])}")
-
-            print("Fetching upvoted content...")
-            items["upvotes"] = set(self.reddit.user.me().upvoted(limit=None))
-            print(f"Total upvoted items found: {len(items['upvotes'])}")
-
-            print("Fetching downvoted content...")
-            items["downvotes"] = set(self.reddit.user.me().downvoted(limit=None))
-            print(f"Total downvoted items found: {len(items['downvotes'])}")
-
-            print("Fetching hidden content...")
-            items["hidden"] = set(self.reddit.user.me().hidden(limit=None))
-            print(f"Total hidden items found: {len(items['hidden'])}")
-
-            for item_type, item_set in items.items():
+            # Process posts and comments first because otherwise can API errors appear when it comes to 
+            # deleting upvotes and downvotes on posts and comments that have been deleted.
+            for item_type in ["posts", "comments"]:
                 if self.interrupt_flag:
                     break
-                total_items = len(item_set)
-                print(f"Processing {total_items} {item_type}...")
-                self.process_items_in_batches(list(item_set), item_type, total_items, processed_counts)
+                if getattr(self.preferences, f"delete_{item_type}"):
+                    total_items = len(items[item_type])
+                    print(f"Processing {total_items} {item_type}...")
+                    self.process_items_in_batches(list(items[item_type]), item_type, total_items, processed_counts)
+
+            # Only now fetch other content types...
+            if self.preferences.delete_saved:
+                print("Fetching saved content...")
+                items["saved"] = set(self.reddit.user.me().saved(limit=None))
+                print(f"Total saved items found: {len(items['saved'])}")
+
+            if self.preferences.delete_upvotes:
+                print("Fetching upvoted content...")
+                items["upvotes"] = set(self.reddit.user.me().upvoted(limit=None))
+                print(f"Total upvoted items found: {len(items['upvotes'])}")
+
+            if self.preferences.delete_downvotes:
+                print("Fetching downvoted content...")
+                items["downvotes"] = set(self.reddit.user.me().downvoted(limit=None))
+                print(f"Total downvoted items found: {len(items['downvotes'])}")
+
+            if self.preferences.delete_hidden:
+                print("Fetching hidden content...")
+                items["hidden"] = set(self.reddit.user.me().hidden(limit=None))
+                print(f"Total hidden items found: {len(items['hidden'])}")
+
+            # Process remaining items...
+            for item_type in ["saved", "upvotes", "downvotes", "hidden"]:
+                if self.interrupt_flag:
+                    break
+                if getattr(self.preferences, f"delete_{item_type}"):
+                    total_items = len(items[item_type])
+                    print(f"Processing {total_items} {item_type}...")
+                    self.process_items_in_batches(list(items[item_type]), item_type, total_items, processed_counts)
 
         finally:
             # Update self.total_processed_dict regardless of whether an exception occurred.
