@@ -78,7 +78,8 @@ def run_content_remover(preferences: UserPreferences, reddit: praw.Reddit, auth:
 
 def main():
     is_exe = getattr(sys, "frozen", False)
-    is_exe = True
+    if is_exe:
+        print("Please enter your credential information in the window that pops up. Leave this terminal open.")
     # Create an instance of RedditAuth and get the Reddit instance
     auth = RedditAuth(is_exe=is_exe)
     reddit = auth.get_reddit_instance()

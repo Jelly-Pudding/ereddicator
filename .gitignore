@@ -1,2 +1,5 @@
 __pycache__
 src/reddit_credentials.ini
+build/
+dist/
+ereddicator.spec

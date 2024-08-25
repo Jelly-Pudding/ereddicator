@@ -63,36 +63,55 @@ If you don't want to install Python, you can use the `.exe` version of the scrip
 
 ## Generating the EXE File
 
-Run this command:
-`pyinstaller --onefile --console ereddicator.py`
+1. Navigate to the `src` directory of the project:
+   ```
+   cd path/to/ereddicator/src
+   ```
 
-`praw.ini` needs to be in the same directory as the `.exe` file generated from the above command. Its content:
+2. Run the following PyInstaller command:
+   ```
+   python -m PyInstaller --onefile --console --name ereddicator --add-data "modules:modules" main.py
+   ```
 
-```ini
-[DEFAULT]
-# A boolean to indicate whether or not to check for package updates.
-check_for_updates=False
+   This command does the following:
+   - `--onefile`: Creates a single executable file.
+   - `--console`: Keeps the console window open (useful for seeing any error messages).
+   - `--name ereddicator`: Names the output executable 'ereddicator'.
+   - `--add-data "modules:modules"`: Includes the `modules` directory in the executable.
 
-# Object to kind mappings
-comment_kind=t1
-message_kind=t4
-redditor_kind=t2
-submission_kind=t3
-subreddit_kind=t5
-trophy_kind=t6
+3. After the process completes, you'll find the `ereddicator.exe` file in the `dist` directory.
 
-# The URL prefix for OAuth-related requests.
-oauth_url=https://oauth.reddit.com
+4. Create a file called `praw.ini` in the same directory as the `ereddicator.exe` file. The content of `praw.ini` should be:
 
-# The amount of seconds of ratelimit to sleep for upon encountering a specific type of 429 error.
-ratelimit_seconds=5
+   ```ini
+   [DEFAULT]
+   # A boolean to indicate whether or not to check for package updates.
+   check_for_updates=False
 
-# The URL prefix for regular requests.
-reddit_url=https://www.reddit.com
+   # Object to kind mappings
+   comment_kind=t1
+   message_kind=t4
+   redditor_kind=t2
+   submission_kind=t3
+   subreddit_kind=t5
+   trophy_kind=t6
 
-# The URL prefix for short URLs.
-short_url=https://redd.it
+   # The URL prefix for OAuth-related requests.
+   oauth_url=https://oauth.reddit.com
 
-# The timeout for requests to Reddit in number of seconds
-timeout=16
-```
+   # The amount of seconds of ratelimit to sleep for upon encountering a specific type of 429 error.
+   ratelimit_seconds=5
+
+   # The URL prefix for regular requests.
+   reddit_url=https://www.reddit.com
+
+   # The URL prefix for short URLs.
+   short_url=https://redd.it
+
+   # The timeout for requests to Reddit in number of seconds
+   timeout=16
+   ```
+
+5. The `ereddicator.exe` file is now ready to be distributed and used.
+
+Note: Make sure you have PyInstaller installed (`pip install pyinstaller`) before running the command.

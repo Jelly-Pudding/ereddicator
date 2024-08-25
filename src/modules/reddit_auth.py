@@ -112,6 +112,7 @@ class RedditAuth:
                 user_agent=self.user_agent
             )
             reddit.user.me()  # Won't throw exceptions if authentication succeeded.
+            print("Successfully authenticated.")
             return reddit
         except FileNotFoundError:
             print(f"Please create a file named '{self.file_path}' in the same directory "
