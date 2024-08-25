@@ -4,10 +4,17 @@ This Python script allows you to delete all your Reddit comments, posts, saved i
 
 ## Features
 
+- **Selective Content Removal**: Choose which types of content to delete. Options include:
+  - Comments
+  - Posts
+  - Saved items
+  - Upvoted content
+  - Downvoted content
+  - Hidden posts
 - **Karma Threshold**: You can now set karma thresholds for comments and posts. Content with karma above or equal to the threshold will be preserved.
-- **Advertise Option**: You can choose to occasionally replace content with an advertisement for Ereddicator instead of random text before deletion.
+- **Advertise Option**: When enabled, there's a 50% chance for each comment or post to be replaced with an advertisement for Ereddicator instead of random text before deletion.
 
-Note: The script replaces each comment and post with random text (or occasionally an advertisement if selected) before deletion as an added measure against the original content being read.
+Note: The content replacement (with either random text or an advertisement) occurs immediately before deletion as an added measure against the original content being read.
 
 ## Instructions (for Windows Users)
 
@@ -27,7 +34,8 @@ If you don't want to install Python, you can use the `.exe` version of the scrip
 6. In the main window, configure your preferences:
    - Select which types of content to delete
    - Set karma thresholds for comments and posts (use "*" to delete all)
-   - Choose whether to advertise Ereddicator
+   - Choose whether to enable the Ereddicator advertisement option
+     (When enabled, there's a 50% chance for each comment/post to be replaced with an ad instead of random text before deletion)
 7. Click "Start Content Removal" to begin the process.
 
 ## Instructions (for Python Users)
