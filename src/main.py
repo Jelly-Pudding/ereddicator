@@ -62,7 +62,6 @@ def run_content_remover(preferences: UserPreferences, reddit: praw.Reddit, auth:
 
 def main():
     is_exe = getattr(sys, "frozen", False)
-    is_exe = True  # Uncomment this line for testing exe mode
 
     # Create an instance of RedditAuth and get the Reddit instance
     auth = RedditAuth(is_exe=is_exe)

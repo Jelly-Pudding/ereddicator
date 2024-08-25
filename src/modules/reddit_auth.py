@@ -56,13 +56,10 @@ class RedditAuth:
         credentials = gui.get_credentials()
         root.destroy()  # Ensure the window is destroyed after getting credentials
         
-        if credentials:
-            self.client_id = credentials["client id"]
-            self.client_secret = credentials["client secret"]
-            self.username = credentials["username"]
-            self.password = credentials["password"]
-        else:
-            raise ValueError("No credentials provided")
+        self.client_id = credentials["client id"]
+        self.client_secret = credentials["client secret"]
+        self.username = credentials["username"]
+        self.password = credentials["password"]
 
     def _read_credentials_from_file(self) -> None:
         """
