@@ -3,9 +3,9 @@ import string
 import time
 from typing import Dict, List, Union, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from modules.user_preferences import UserPreferences
 import praw
 from prawcore import ResponseException
+from modules.user_preferences import UserPreferences
 
 
 class RedditContentRemover:
@@ -30,6 +30,11 @@ class RedditContentRemover:
         self.preferences = preferences
         self.total_processed_dict = {k: 0 for k in ["comments", "posts", "saved", "upvotes", "downvotes", "hidden"]}
         self.interrupt_flag = False
+        self.ad_text = (
+            "Original Content erased using Ereddicator. "
+            "Want to wipe your own Reddit history? "
+            "Please see https://github.com/Jelly-Pudding/ereddicator for instructions."
+        )
 
     @staticmethod
     def generate_random_text() -> str:
@@ -47,6 +52,21 @@ class RedditContentRemover:
             words.append(word)
         return " ".join(words)
 
+    def get_replacement_text(self) -> str:
+        """
+        Determines the text to replace the original content.
+
+        This method decides whether to use advertising text or random text based on user preferences
+        and a probability check. If the user has opted into advertising and a random check passes,
+        it returns the advertising text. Otherwise, it returns randomly generated text.
+
+        Returns:
+            str: Either the advertising text or a randomly generated string.
+        """
+        if self.preferences.advertise_ereddicator and random.random() < 0.5:
+            return self.ad_text
+        return self.generate_random_text()
+
     def get_item_info(self, item: Union[praw.models.Comment, praw.models.Submission], item_type: str) -> str:
         """
         Get a string representation of the item for logging purposes.
@@ -61,11 +81,10 @@ class RedditContentRemover:
         try:
             if isinstance(item, praw.models.Comment):
                 return f"Comment '{item.body[:25]}...' in r/{item.subreddit.display_name}"
-            elif isinstance(item, praw.models.Submission):
+            if isinstance(item, praw.models.Submission):
                 return f"Post '{item.title[:25]}...' in r/{item.subreddit.display_name}"
-            else:
-                # Just in case the item is not a comment or post.
-                return f"{item_type.capitalize()} item (ID: {item.id}) of type {type(item).__name__}"
+            # Just in case the item is not a comment or post.
+            return f"{item_type.capitalize()} item (ID: {item.id}) of type {type(item).__name__}"
         except AttributeError:
             return f"{item_type.capitalize()} item (ID: {getattr(item, 'id', 'N/A')})"
 
@@ -89,18 +108,19 @@ class RedditContentRemover:
                 return False
             try:
                 item_info = self.get_item_info(item, item_type)
-
                 if item_type == "comments":
-                    random_text = self.generate_random_text()
-                    print(f"Replacing original comment '{item_info}' with random text.")
-                    item.edit(random_text)
+                    replacement_text = self.get_replacement_text()
+                    print(f"Replacing original comment '{item_info}' with "
+                          f"{'advertising' if replacement_text == self.ad_text else 'random'} text.")
+                    item.edit(replacement_text)
                     print(f"Deleting comment: '{item_info}'")
                     item.delete()
                 elif item_type == "posts":
                     if item.is_self:
-                        random_text = self.generate_random_text()
-                        print(f"Replacing content of 'Text {item_info}' with random text.")
-                        item.edit(random_text)
+                        replacement_text = self.get_replacement_text()
+                        print(f"Replacing content of 'Text {item_info}' with "
+                              f"{'advertising' if replacement_text == self.ad_text else 'random'} text.")
+                        item.edit(replacement_text)
                     else:
                         print(f"It is impossible to edit content of 'Link {item_info}'.")
                     print(f"Deleting post: '{item_info}'")
@@ -278,7 +298,7 @@ class RedditContentRemover:
                     items["posts"].update(posts)
                     print(f"Total unique posts found so far: {len(items['posts'])}")
 
-            # Process posts and comments first because otherwise API errors can appear when it comes to 
+            # Process posts and comments first because otherwise API errors can appear when it comes to
             # deleting upvotes and downvotes on posts and comments that have been deleted.
             for item_type in ["posts", "comments"]:
                 if self.interrupt_flag:

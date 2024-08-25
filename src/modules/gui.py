@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import ttk
 from modules.user_preferences import UserPreferences
 
 class RedditContentRemoverGUI:
@@ -42,6 +43,29 @@ class RedditContentRemoverGUI:
                                 command=self.update_entry_states)
             cb.pack(anchor='w', pady=5)
 
+        # New checkbox for advertising option with question mark
+        self.advertise_var = tk.BooleanVar(value=False)
+        advertise_frame = tk.Frame(main_frame, bg='#2b2b2b')
+        advertise_frame.pack(fill='x', pady=10)
+        
+        advertise_cb = tk.Checkbutton(advertise_frame,
+                                      text="Advertise Ereddicator", 
+                                      variable=self.advertise_var,
+                                      bg='#2b2b2b', 
+                                      fg='#ffffff', 
+                                      selectcolor='#2b2b2b',
+                                      activebackground='#2b2b2b', 
+                                      activeforeground='#ffffff',
+                                      font=('Arial', 12))
+        advertise_cb.pack(side='left', pady=5)
+
+        # Question mark button with tooltip
+        question_button = tk.Button(advertise_frame, text="?", font=('Arial', 10), bg='#3c3c3c', fg='#ffffff')
+        question_button.pack(side='left', padx=(5, 10))
+        
+        tooltip_text = "Occasionally replaces content with ad instead of random text before deletion"
+        self.create_tooltip(question_button, tooltip_text)
+
         karma_frame = tk.Frame(main_frame, bg='#2b2b2b')
         karma_frame.pack(fill='x', pady=10)
 
@@ -68,6 +92,34 @@ class RedditContentRemoverGUI:
                 bg='#ffffff', fg='#000000', font=('Arial', 14))
         self.start_button.pack(pady=(10,20))
 
+    def create_tooltip(self, widget, text):
+        tooltipwindow = None
+        
+        def enter(event=None):
+            nonlocal tooltipwindow
+            x = y = 0
+            x, y, _, _ = widget.bbox("insert")
+            x += widget.winfo_rootx() + 25
+            y += widget.winfo_rooty() + 20
+
+            # Creates a toplevel window
+            tooltipwindow = tk.Toplevel(widget)
+            # Leaves only the label and removes the app window
+            tooltipwindow.wm_overrideredirect(True)
+            tooltipwindow.wm_geometry(f"+{x}+{y}")
+            label = tk.Label(tooltipwindow, text=text, justify='left',
+                             background="#ffffff", relief='solid', borderwidth=1,
+                             font=("Arial", "11", "normal"))
+            label.pack(ipadx=1)
+
+        def leave(event=None):
+            nonlocal tooltipwindow
+            if tooltipwindow:
+                tooltipwindow.destroy()
+
+        widget.bind('<Enter>', enter)
+        widget.bind('<Leave>', leave)
+
     def update_entry_states(self):
         comment_state = 'normal' if self.content_vars['comments'].get() else 'disabled'
         post_state = 'normal' if self.content_vars['posts'].get() else 'disabled'
@@ -84,6 +136,7 @@ class RedditContentRemoverGUI:
 
         self.preferences.comment_karma_threshold = None if self.comment_threshold.get() == "*" else int(self.comment_threshold.get())
         self.preferences.post_karma_threshold = None if self.post_threshold.get() == "*" else int(self.post_threshold.get())
+        self.preferences.advertise_ereddicator = self.advertise_var.get()
 
         self.master.destroy()
         self.start_removal_callback(self.preferences)
