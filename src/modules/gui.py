@@ -1,5 +1,4 @@
 import tkinter as tk
-from tkinter import ttk
 from modules.user_preferences import UserPreferences
 
 class RedditContentRemoverGUI:
@@ -43,7 +42,7 @@ class RedditContentRemoverGUI:
                                 command=self.update_entry_states)
             cb.pack(anchor='w', pady=5)
 
-        # New checkbox for advertising option with question mark
+        # Advertising option with question mark
         self.advertise_var = tk.BooleanVar(value=False)
         advertise_frame = tk.Frame(main_frame, bg='#2b2b2b')
         advertise_frame.pack(fill='x', pady=10)
@@ -59,13 +58,13 @@ class RedditContentRemoverGUI:
                                       font=('Arial', 12))
         advertise_cb.pack(side='left', pady=5)
 
-        # Question mark button with tooltip
-        question_button = tk.Button(advertise_frame, text="?", font=('Arial', 10), bg='#3c3c3c', fg='#ffffff')
-        question_button.pack(side='left', padx=(5, 10))
+        ad_question_button = tk.Button(advertise_frame, text="?", font=('Arial', 10), bg='#3c3c3c', fg='#ffffff')
+        ad_question_button.pack(side='left', padx=(5, 10))
         
-        tooltip_text = "Occasionally replaces content with ad instead of random text before deletion"
-        self.create_tooltip(question_button, tooltip_text)
+        ad_tooltip_text = "Occasionally replaces content with ad instead of random text before deletion"
+        self.create_tooltip(ad_question_button, ad_tooltip_text)
 
+        # Comment karma threshold with question mark
         karma_frame = tk.Frame(main_frame, bg='#2b2b2b')
         karma_frame.pack(fill='x', pady=10)
 
@@ -75,6 +74,13 @@ class RedditContentRemoverGUI:
         self.comment_threshold.pack(side='left')
         self.comment_threshold.insert(0, "*")
 
+        comment_question_button = tk.Button(karma_frame, text="?", font=('Arial', 10), bg='#3c3c3c', fg='#ffffff')
+        comment_question_button.pack(side='left', padx=(5, 10))
+        
+        comment_tooltip_text = "Use '*' to delete all comments, or enter a number to keep comments with karma greater than or equal to that number"
+        self.create_tooltip(comment_question_button, comment_tooltip_text)
+
+        # Post karma threshold with question mark
         karma_frame2 = tk.Frame(main_frame, bg='#2b2b2b')
         karma_frame2.pack(fill='x', pady=10)
 
@@ -84,13 +90,15 @@ class RedditContentRemoverGUI:
         self.post_threshold.pack(side='left')
         self.post_threshold.insert(0, "*")
 
-        explanation = "Note: Use '*' to delete all, or enter a number to keep\ncontent with karma greater than or equal to that number."
-        tk.Label(main_frame, text=explanation, bg='#2b2b2b', fg='#ffffff', 
-                font=('Arial', 12), justify=tk.LEFT, wraplength=360).pack(anchor='w', pady=(10,15))
+        post_question_button = tk.Button(karma_frame2, text="?", font=('Arial', 10), bg='#3c3c3c', fg='#ffffff')
+        post_question_button.pack(side='left', padx=(5, 10))
+        
+        post_tooltip_text = "Use '*' to delete all posts, or enter a number to keep posts with karma greater than or equal to that number"
+        self.create_tooltip(post_question_button, post_tooltip_text)
 
         self.start_button = tk.Button(main_frame, text="Start Content Removal", command=self.start_removal, 
                 bg='#ffffff', fg='#000000', font=('Arial', 14))
-        self.start_button.pack(pady=(10,20))
+        self.start_button.pack(pady=(20,20))
 
     def create_tooltip(self, widget, text):
         tooltipwindow = None
