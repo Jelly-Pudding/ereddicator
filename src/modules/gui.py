@@ -5,9 +5,9 @@ class RedditContentRemoverGUI:
     def __init__(self, master, start_removal_callback):
         self.master = master
         self.start_removal_callback = start_removal_callback
-        master.title("Reddit Content Remover")
+        master.title("Ereddicator")
         master.configure(bg='#2b2b2b')
-        master.geometry("375x450")
+        master.geometry("400x500")  # Increased window size
         master.resizable(False, False)
         
         self.preferences = UserPreferences()
@@ -26,8 +26,15 @@ class RedditContentRemoverGUI:
             cb = tk.Checkbutton(main_frame, text=f"Delete {content_type}", variable=var, 
                                 bg='#2b2b2b', fg='#ffffff', selectcolor='#2b2b2b',
                                 activebackground='#2b2b2b', activeforeground='#ffffff',
-                                font=('Arial', 12))
+                                font=('Arial', 14))  # Increased font size
             cb.pack(anchor='w', pady=5)
+
+        # Frame for karma thresholds
+        karma_frame = tk.Frame(main_frame, bg='#2b2b2b')
+        karma_frame.pack(fill='x', pady=10)
+
+        label_width = 20  # Width for labels to ensure alignment
+        entry_width = 10  # Width for entry fields
 
         # Frame for karma thresholds
         karma_frame = tk.Frame(main_frame, bg='#2b2b2b')
@@ -47,11 +54,12 @@ class RedditContentRemoverGUI:
         self.post_threshold.insert(0, "*")
 
         explanation = "* Use '*' to delete all, or enter a number to keep\ncontent with karma greater than or equal to that number."
-        tk.Label(main_frame, text=explanation, bg='#2b2b2b', fg='#ffffff', font=('Arial', 12), justify=tk.LEFT, wraplength=360).pack(anchor='w', pady=(10,15))
+        tk.Label(main_frame, text=explanation, bg='#2b2b2b', fg='#ffffff', 
+                 font=('Arial', 12), justify=tk.LEFT, wraplength=360).pack(anchor='w', pady=(10,15))
 
         # Add the Start Content Removal button
         self.start_button = tk.Button(main_frame, text="Start Content Removal", command=self.start_removal, 
-                  bg='#ffffff', fg='#000000', font=('Arial', 12))
+                  bg='#ffffff', fg='#000000', font=('Arial', 14))  # Increased font size
         self.start_button.pack(pady=20)
 
     def start_removal(self):
@@ -61,5 +69,5 @@ class RedditContentRemoverGUI:
         self.preferences.comment_karma_threshold = None if self.comment_threshold.get() == "*" else int(self.comment_threshold.get())
         self.preferences.post_karma_threshold = None if self.post_threshold.get() == "*" else int(self.post_threshold.get())
 
-        self.start_removal_callback(self.preferences)
         self.master.destroy()
+        self.start_removal_callback(self.preferences)
