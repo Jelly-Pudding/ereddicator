@@ -42,8 +42,8 @@ class RedditContentRemoverGUI:
                                 command=self.update_entry_states)
             cb.pack(anchor='w', pady=5)
 
-        # Advertising option with question mark
-        self.advertise_var = tk.BooleanVar(value=False)
+        # Advertising option with question mark (now checked by default)
+        self.advertise_var = tk.BooleanVar(value=True)  # Changed to True
         advertise_frame = tk.Frame(main_frame, bg='#2b2b2b')
         advertise_frame.pack(fill='x', pady=10)
         
