@@ -1,31 +1,33 @@
+import tkinter as tk
 import time
 import signal
 import sys
+import praw
 from modules.reddit_auth import RedditAuth
 from modules.reddit_content_remover import RedditContentRemover
 from modules.user_preferences import UserPreferences
+from modules.gui import RedditContentRemoverGUI
 
 
-def main():
-    is_exe = getattr(sys, "frozen", False)
+def run_content_remover(preferences: UserPreferences, reddit: praw.Reddit, auth: RedditAuth) -> None:
+    """
+    Execute the content removal process based on user preferences.
 
-    # Create an instance of RedditAuth
-    auth = RedditAuth(is_exe=is_exe)
-    # Get the Reddit instance (this will exit the program if authentication fails).
-    reddit = auth.get_reddit_instance()
+    This function initialises the content remover, sets up interrupt handlers,
+    and runs the content removal process in a loop until all content is removed
+    or an interrupt is received.
 
-    # Get user preferences
-    preferences = UserPreferences.from_user_input()
+    Args:
+        preferences (UserPreferences): User-defined preferences for content removal.
+        reddit (praw.Reddit): Authenticated Reddit instance for API interactions.
+        auth (RedditAuth): Reddit authentication object containing user information.
 
+    Raises:
+        Exception: Any unexpected errors during the content removal process.
+    """
     if not preferences.any_selected():
         print("No content types selected for deletion. Exiting.")
-        sys.exit(0)
-
-    confirmation = input("This will remove the selected Reddit content. "
-                         "Are you sure you want to continue? (yes/no): ")
-    if confirmation.lower() not in ['yes', 'y']:
-        print("Script aborted.")
-        sys.exit(1)
+        return
 
     run_count = 0
     content_remover = RedditContentRemover(reddit, auth.username, preferences)
@@ -69,9 +71,23 @@ def main():
         print(f"\nTotal content destroyed across {run_count} {'run' if run_count == 1 else 'runs'}:")
         for item_type, count in content_remover.total_processed_dict.items():
             print(f"{item_type.capitalize()}: {count}")
-        if is_exe:
+        if auth.is_exe:
             print("\nPress Enter to exit...")
             input()
+
+
+def main():
+    is_exe = getattr(sys, "frozen", False)
+    if is_exe:
+        print("Please enter your credential information in the window that pops up. Leave this terminal open.")
+    # Create an instance of RedditAuth and get the Reddit instance
+    auth = RedditAuth(is_exe=is_exe)
+    reddit = auth.get_reddit_instance()
+
+    root = tk.Tk()
+    root.tk.call('tk', 'scaling', 1.0)  # This ensures consistent sizing across different DPI settings
+    _ = RedditContentRemoverGUI(root, start_removal_callback=lambda prefs: run_content_remover(prefs, reddit, auth))
+    root.mainloop()
 
 
 if __name__ == "__main__":
