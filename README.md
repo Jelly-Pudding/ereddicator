@@ -58,8 +58,9 @@ If you don't want to install Python, you can use the `.exe` version of the scrip
     username = YOUR_USERNAME
     password = YOUR_PASSWORD
     ```
-4. Run the script using Python: `python ereddicator.py`.
-5. Follow the on-screen instructions in the GUI to configure your preferences and start the content removal process.
+4. Navigate to the `src` directory.
+5. Run the script using Python: `python main.py`.
+6. Follow the on-screen instructions in the GUI to configure your preferences and start the content removal process.
 
 ## Generating the EXE File
 
