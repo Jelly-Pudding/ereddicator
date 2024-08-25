@@ -278,7 +278,7 @@ class RedditContentRemover:
                     items["posts"].update(posts)
                     print(f"Total unique posts found so far: {len(items['posts'])}")
 
-            # Process posts and comments first because otherwise can API errors appear when it comes to 
+            # Process posts and comments first because otherwise API errors can appear when it comes to 
             # deleting upvotes and downvotes on posts and comments that have been deleted.
             for item_type in ["posts", "comments"]:
                 if self.interrupt_flag:
