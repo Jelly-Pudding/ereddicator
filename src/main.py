@@ -8,7 +8,23 @@ from modules.reddit_content_remover import RedditContentRemover
 from modules.user_preferences import UserPreferences
 from modules.gui import RedditContentRemoverGUI
 
-def run_content_remover(preferences: UserPreferences, reddit: praw.Reddit, auth: RedditAuth):
+
+def run_content_remover(preferences: UserPreferences, reddit: praw.Reddit, auth: RedditAuth) -> None:
+    """
+    Execute the content removal process based on user preferences.
+
+    This function initialises the content remover, sets up interrupt handlers,
+    and runs the content removal process in a loop until all content is removed
+    or an interrupt is received.
+
+    Args:
+        preferences (UserPreferences): User-defined preferences for content removal.
+        reddit (praw.Reddit): Authenticated Reddit instance for API interactions.
+        auth (RedditAuth): Reddit authentication object containing user information.
+
+    Raises:
+        Exception: Any unexpected errors during the content removal process.
+    """
     if not preferences.any_selected():
         print("No content types selected for deletion. Exiting.")
         return
@@ -62,14 +78,14 @@ def run_content_remover(preferences: UserPreferences, reddit: praw.Reddit, auth:
 
 def main():
     is_exe = getattr(sys, "frozen", False)
-
+    is_exe = True
     # Create an instance of RedditAuth and get the Reddit instance
     auth = RedditAuth(is_exe=is_exe)
     reddit = auth.get_reddit_instance()
 
     root = tk.Tk()
     root.tk.call('tk', 'scaling', 1.0)  # This ensures consistent sizing across different DPI settings
-    gui = RedditContentRemoverGUI(root, start_removal_callback=lambda prefs: run_content_remover(prefs, reddit, auth))
+    _ = RedditContentRemoverGUI(root, start_removal_callback=lambda prefs: run_content_remover(prefs, reddit, auth))
     root.mainloop()
 
 
