@@ -1,5 +1,70 @@
 import tkinter as tk
+from tkinter import messagebox
 from modules.user_preferences import UserPreferences
+
+
+class CredentialsInputGUI:
+    def __init__(self, master):
+        self.master = master
+        self.master.title("Reddit API Credentials")
+        self.master.geometry("400x240")
+        self.master.configure(bg='#2b2b2b')
+        
+        self.credential_entries = {}
+        self.show_password = tk.BooleanVar(value=False)
+        self.submitted_credentials = None
+        self.create_widgets()
+
+    def create_widgets(self):
+        fields = ['Client ID', 'Client Secret', 'Username', 'Password']
+        
+        for i, field in enumerate(fields):
+            label = tk.Label(self.master, text=field + ":", bg='#2b2b2b', fg='#ffffff')
+            label.grid(row=i, column=0, padx=10, pady=5, sticky='e')
+            
+            entry = tk.Entry(self.master, bg='#3c3c3c', fg='#ffffff', width=30)
+            entry.grid(row=i, column=1, padx=10, pady=5, sticky='ew')
+            
+            if field == 'Password':
+                entry.config(show="*")
+                show_password_cb = tk.Checkbutton(self.master, text="Show", variable=self.show_password, 
+                                                  command=lambda e=entry: self.toggle_password_visibility(e),
+                                                  bg='#2b2b2b', fg='#ffffff', selectcolor='#2b2b2b')
+                show_password_cb.grid(row=i, column=2, padx=5)
+            
+            self.credential_entries[field] = entry
+
+        submit_button = tk.Button(self.master, text="Submit", command=self.submit, bg='#ffffff', fg='#000000')
+        submit_button.grid(row=len(fields), column=0, columnspan=3, pady=10)
+
+        self.master.grid_columnconfigure(1, weight=1)
+
+    def toggle_password_visibility(self, entry):
+        entry.config(show="" if self.show_password.get() else "*")
+
+    def submit(self):
+        credentials = {}
+        for field, entry in self.credential_entries.items():
+            value = entry.get().strip()
+            if not value:
+                messagebox.showerror("Error", f"{field} cannot be empty")
+                return
+            credentials[field.lower()] = value
+        
+        self.submitted_credentials = credentials
+        self.master.quit()  # Use quit() instead of destroy() to allow mainloop to finish
+
+    def get_credentials(self):
+        """
+        Retrieve the credentials entered by the user.
+
+        Returns:
+            dict: A dictionary containing the user's credentials with keys
+                  'client_id', 'client_secret', 'username', and 'password'.
+        """
+        self.master.mainloop()  # Start the mainloop
+        return self.submitted_credentials
+
 
 class RedditContentRemoverGUI:
     def __init__(self, master, start_removal_callback):

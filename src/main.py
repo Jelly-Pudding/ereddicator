@@ -2,19 +2,13 @@ import tkinter as tk
 import time
 import signal
 import sys
+import praw
 from modules.reddit_auth import RedditAuth
 from modules.reddit_content_remover import RedditContentRemover
 from modules.user_preferences import UserPreferences
 from modules.gui import RedditContentRemoverGUI
 
-def run_content_remover(preferences: UserPreferences):
-    is_exe = getattr(sys, "frozen", False)
-
-    # Create an instance of RedditAuth
-    auth = RedditAuth(is_exe=is_exe)
-    # Get the Reddit instance (this will exit the program if authentication fails).
-    reddit = auth.get_reddit_instance()
-
+def run_content_remover(preferences: UserPreferences, reddit: praw.Reddit, auth: RedditAuth):
     if not preferences.any_selected():
         print("No content types selected for deletion. Exiting.")
         return
@@ -61,15 +55,24 @@ def run_content_remover(preferences: UserPreferences):
         print(f"\nTotal content destroyed across {run_count} {'run' if run_count == 1 else 'runs'}:")
         for item_type, count in content_remover.total_processed_dict.items():
             print(f"{item_type.capitalize()}: {count}")
-        if is_exe:
+        if auth.is_exe:
             print("\nPress Enter to exit...")
             input()
 
+
 def main():
+    is_exe = getattr(sys, "frozen", False)
+    is_exe = True  # Uncomment this line for testing exe mode
+
+    # Create an instance of RedditAuth and get the Reddit instance
+    auth = RedditAuth(is_exe=is_exe)
+    reddit = auth.get_reddit_instance()
+
     root = tk.Tk()
     root.tk.call('tk', 'scaling', 1.0)  # This ensures consistent sizing across different DPI settings
-    gui = RedditContentRemoverGUI(root, start_removal_callback=run_content_remover)
+    gui = RedditContentRemoverGUI(root, start_removal_callback=lambda prefs: run_content_remover(prefs, reddit, auth))
     root.mainloop()
+
 
 if __name__ == "__main__":
     main()

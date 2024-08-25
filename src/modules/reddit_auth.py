@@ -3,6 +3,8 @@ import sys
 import configparser
 import praw
 from prawcore.exceptions import OAuthException, ResponseException
+import tkinter as tk
+from modules.gui import CredentialsInputGUI
 
 
 class RedditAuth:
@@ -38,21 +40,29 @@ class RedditAuth:
         based on the is_exe flag.
         """
         if self.is_exe:
-            self._prompt_credentials()
+            self._prompt_credentials_from_gui()
         else:
             self._read_credentials_from_file()
 
-    def _prompt_credentials(self) -> None:
+    def _prompt_credentials_from_gui(self) -> None:
         """
-        Prompt the user to input Reddit API credentials.
+        Prompt the user to input Reddit API credentials using a graphical user interface.
 
-        This method is called when Ereddicator is running as an executable.
+        This method creates a Tkinter window with input fields for the client ID, client secret,
+        username, and password. It uses the CredentialsInputGUI class to manage the input process.
         """
-        print("Please enter your Reddit API credentials. Please see the README.md file if you need help.")
-        self.client_id = input("Client ID: ").strip()
-        self.client_secret = input("Client Secret: ").strip()
-        self.username = input("Username: ").strip()
-        self.password = input("Password: ").strip()
+        root = tk.Tk()
+        gui = CredentialsInputGUI(root)
+        credentials = gui.get_credentials()
+        root.destroy()  # Ensure the window is destroyed after getting credentials
+        
+        if credentials:
+            self.client_id = credentials["client id"]
+            self.client_secret = credentials["client secret"]
+            self.username = credentials["username"]
+            self.password = credentials["password"]
+        else:
+            raise ValueError("No credentials provided")
 
     def _read_credentials_from_file(self) -> None:
         """
