@@ -1,14 +1,14 @@
 from typing import Optional
 from dataclasses import dataclass
 
-
 @dataclass
 class UserPreferences:
     """
     A class to store and manage user preferences for Reddit content management.
 
     This class uses boolean flags to indicate which types of content the user wants to delete,
-    and includes karma thresholds for comments and posts. Content with karma above or equal to
+    includes karma thresholds for comments and posts, and an option to occasionally advertise
+    Ereddicator when editing text before deletion. Content with karma above or equal to
     the threshold will be preserved.
 
     Attributes:
@@ -22,6 +22,7 @@ class UserPreferences:
             greater than or equal to this value will be kept. If None, all selected comments will be deleted.
         post_karma_threshold (Optional[int]): Karma threshold for posts. Posts with karma
             greater than or equal to this value will be kept. If None, all selected posts will be deleted.
+        advertise_ereddicator (bool): Flag to occasionally advertise Ereddicator when editing text before deletion.
     """
 
     delete_comments: bool = True
@@ -32,14 +33,16 @@ class UserPreferences:
     delete_hidden: bool = True
     comment_karma_threshold: Optional[int] = None
     post_karma_threshold: Optional[int] = None
+    advertise_ereddicator: bool = False
 
     @classmethod
     def from_user_input(cls) -> 'UserPreferences':
         """
         Create a UserPreferences instance based on user input.
 
-        This method prompts the user to choose which content types they want to delete
-        and set karma thresholds for comments and posts.
+        This method prompts the user to choose which content types they want to delete,
+        set karma thresholds for comments and posts, and whether to occasionally
+        advertise Ereddicator when editing text before deletion.
 
         Returns:
             UserPreferences: An instance of UserPreferences with user-selected preferences.
@@ -57,6 +60,9 @@ class UserPreferences:
         if preferences.delete_posts:
             threshold = input("Enter karma threshold for posts to keep (>= value), or '*' to delete all: ")
             preferences.post_karma_threshold = None if threshold == "*" else int(threshold)
+
+        ad_response = input("Do you want to occasionally advertise Ereddicator when editing text before deletion? (y/N): ").strip().lower()
+        preferences.advertise_ereddicator = ad_response == "y"
 
         return preferences
 
