@@ -126,6 +126,7 @@ class RedditContentRemoverGUI:
         main_frame.pack(padx=20, pady=20, fill=tk.BOTH, expand=True)
 
         self.content_vars = {}
+        self.only_edit_vars = {}
         content_types = ["comments", "posts", "saved", "upvotes", "downvotes", "hidden"]
 
         checkbox_frame = tk.Frame(main_frame, bg="#2b2b2b")
@@ -148,10 +149,25 @@ class RedditContentRemoverGUI:
                                 activebackground="#2b2b2b",
                                 activeforeground="#ffffff",
                                 font=("Arial", 12),
-                                command=self.update_entry_states)
+                                command=lambda ct=content_type: self.update_checkboxes(ct))
             cb.pack(anchor="w", pady=5)
 
-        # Advertising option with question mark.
+            if content_type in ["comments", "posts"]:
+                edit_var = tk.BooleanVar(value=False)
+                self.only_edit_vars[content_type] = edit_var
+                edit_cb = tk.Checkbutton(left_column if i < 3 else right_column,
+                                         text=f"Only edit {content_type}",
+                                         variable=edit_var,
+                                         bg="#2b2b2b",
+                                         fg="#ffffff",
+                                         selectcolor="#2b2b2b",
+                                         activebackground="#2b2b2b",
+                                         activeforeground="#ffffff",
+                                         font=("Arial", 12),
+                                         command=lambda ct=content_type: self.update_checkboxes(ct, edit=True))
+                edit_cb.pack(anchor="w", pady=5)
+
+        # Advertising option with question mark
         self.advertise_var = tk.BooleanVar(value=True)
         advertise_frame = tk.Frame(main_frame, bg="#2b2b2b")
         advertise_frame.pack(fill="x", pady=10)
@@ -244,12 +260,30 @@ class RedditContentRemoverGUI:
         widget.bind("<Enter>", enter)
         widget.bind("<Leave>", leave)
 
+    def update_checkboxes(self, content_type: str, edit: bool = False) -> None:
+        """
+        Update checkbox states to ensure "Delete" and "Only Edit" are mutually exclusive.
+
+        Args:
+            content_type (str): The type of content being updated ('comments' or 'posts').
+            edit (bool): Whether the update is triggered by the "Only Edit" checkbox.
+        """
+        if content_type in ["comments", "posts"]:
+            if edit:
+                if self.only_edit_vars[content_type].get():
+                    self.content_vars[content_type].set(False)
+            else:
+                if self.content_vars[content_type].get():
+                    self.only_edit_vars[content_type].set(False)
+
+        self.update_entry_states()
+
     def update_entry_states(self) -> None:
         """
         Update the state of karma threshold entry fields based on checkbox states.
         """
-        comment_state = "normal" if self.content_vars["comments"].get() else "disabled"
-        post_state = "normal" if self.content_vars["posts"].get() else "disabled"
+        comment_state = "normal" if self.content_vars["comments"].get() or self.only_edit_vars["comments"].get() else "disabled"
+        post_state = "normal" if self.content_vars["posts"].get() or self.only_edit_vars["posts"].get() else "disabled"
 
         self.comment_threshold.config(state=comment_state)
         self.post_threshold.config(state=post_state)
@@ -263,6 +297,9 @@ class RedditContentRemoverGUI:
         """
         for content_type, var in self.content_vars.items():
             setattr(self.preferences, f"delete_{content_type}", var.get())
+
+        self.preferences.only_edit_comments = self.only_edit_vars["comments"].get()
+        self.preferences.only_edit_posts = self.only_edit_vars["posts"].get()
 
         self.preferences.comment_karma_threshold = None if self.comment_threshold.get() == "*" else int(self.comment_threshold.get())
         self.preferences.post_karma_threshold = None if self.post_threshold.get() == "*" else int(self.post_threshold.get())
