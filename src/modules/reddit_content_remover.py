@@ -88,21 +88,38 @@ class RedditContentRemover:
         except AttributeError:
             return f"{item_type.capitalize()} item (ID: {getattr(item, 'id', 'N/A')})"
 
-    def edit_item_multiple_times(self, item: Union[praw.models.Comment, praw.models.Submission], edit_count: int = 3) -> None:
+    def edit_item_multiple_times(self, item: Union[praw.models.Comment, praw.models.Submission], item_type: str, edit_count: int = 3, max_retries: int = 5) -> None:
         """
-        Edit a Reddit item (comment or post) multiple times before deletion.
+        Edit a Reddit item (comment or post) multiple times before deletion, with retry mechanism.
 
         Args:
             item (Union[praw.models.Comment, praw.models.Submission]): The item to edit.
+            item_type (str): The type of item ('comments' or 'posts').
             edit_count (int): The number of times to edit the item. Defaults to 3.
+            max_retries (int): Maximum number of retry attempts for each edit. Defaults to 5.
         """
-        for _ in range(edit_count):
+        item_info = self.get_item_info(item, item_type)
+        for i in range(edit_count):
             if self.interrupt_flag:
                 break
             replacement_text = self.get_replacement_text()
-            print(f"Editing {type(item).__name__} with {'advertising' if replacement_text == self.ad_text else 'random'} text.")
-            item.edit(replacement_text)
-            time.sleep(0.5)
+            for attempt in range(max_retries):
+                try:
+                    print(f"Edit {i+1}/{edit_count}: Editing {item_type[:-1]} '{item_info}' with {'advertising' if replacement_text == self.ad_text else 'random'} text.")
+                    item.edit(replacement_text)
+                    break
+                except praw.exceptions.RedditAPIException as e:
+                    if attempt < max_retries - 1:
+                        sleep_time = (2 ** attempt) + (random.randint(0, 1000) / 1000)
+                        print(f"Encountered a Reddit API Exception: {e}")
+                        print(f"Likely hit the rate limit. Retrying edit in {sleep_time:.2f} seconds... (Attempt {attempt + 1}/{max_retries})")
+                        for _ in range(int(sleep_time * 10)):
+                            if self.interrupt_flag:
+                                return
+                            time.sleep(0.1)
+                    else:
+                        print(f"Failed to edit {item_type[:-1]} '{item_info}' after {max_retries} attempts.")
+            time.sleep(0.8)
 
     def process_item(self, item: Union[praw.models.Comment, praw.models.Submission],
                      item_type: str, processed_counts: Dict[str, int], max_retries: int = 5) -> bool:
@@ -126,18 +143,18 @@ class RedditContentRemover:
                 item_info = self.get_item_info(item, item_type)
                 if item_type == "comments":
                     if self.preferences.only_edit_comments:
-                        self.edit_item_multiple_times(item)
+                        self.edit_item_multiple_times(item, item_type)
                     else:
-                        self.edit_item_multiple_times(item)
+                        self.edit_item_multiple_times(item, item_type)
                         print(f"Deleting comment: '{item_info}'")
                         item.delete()
                 elif item_type == "posts":
                     # 'If this is true, it is a 'Text' Post. Otherwise it is a 'Link' Post.
                     if item.is_self:
                         if self.preferences.only_edit_posts:
-                            self.edit_item_multiple_times(item)
+                            self.edit_item_multiple_times(item, item_type)
                         else:
-                            self.edit_item_multiple_times(item)
+                            self.edit_item_multiple_times(item, item_type)
                             print(f"Deleting Text Post: '{item_info}'")
                             item.delete()
                     else:
