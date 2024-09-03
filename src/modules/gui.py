@@ -127,7 +127,6 @@ class RedditContentRemoverGUI:
 
         self.content_vars = {}
         self.only_edit_vars = {}
-        content_types = ["comments", "posts", "saved", "upvotes", "downvotes", "hidden"]
 
         checkbox_frame = tk.Frame(main_frame, bg="#2b2b2b")
         checkbox_frame.pack(fill="x", pady=10)
@@ -137,35 +136,49 @@ class RedditContentRemoverGUI:
         right_column = tk.Frame(checkbox_frame, bg='#2b2b2b')
         right_column.pack(side="right", fill="y", expand=True)
 
-        for i, content_type in enumerate(content_types):
-            var = tk.BooleanVar(value=True)
-            self.content_vars[content_type] = var
-            cb = tk.Checkbutton(left_column if i < 3 else right_column,
-                                text=f"Delete {content_type}",
-                                variable=var,
-                                bg="#2b2b2b",
-                                fg="#ffffff",
-                                selectcolor="#2b2b2b",
-                                activebackground="#2b2b2b",
-                                activeforeground="#ffffff",
-                                font=("Arial", 12),
-                                command=lambda ct=content_type: self.update_checkboxes(ct))
-            cb.pack(anchor="w", pady=5)
+        # Comments
+        self.content_vars["comments"] = tk.BooleanVar(value=True)
+        self.only_edit_vars["comments"] = tk.BooleanVar(value=False)
+        tk.Checkbutton(left_column, text="Delete comments", variable=self.content_vars["comments"],
+                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b", activebackground="#2b2b2b",
+                    activeforeground="#ffffff", font=("Arial", 12),
+                    command=lambda: self.update_checkboxes("comments")).pack(anchor="w", pady=5)
+        tk.Checkbutton(right_column, text="Only edit comments", variable=self.only_edit_vars["comments"],
+                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b", activebackground="#2b2b2b",
+                    activeforeground="#ffffff", font=("Arial", 12),
+                    command=lambda: self.update_checkboxes("comments", edit=True)).pack(anchor="w", pady=5)
 
-            if content_type in ["comments", "posts"]:
-                edit_var = tk.BooleanVar(value=False)
-                self.only_edit_vars[content_type] = edit_var
-                edit_cb = tk.Checkbutton(left_column if i < 3 else right_column,
-                                         text=f"Only edit {content_type}",
-                                         variable=edit_var,
-                                         bg="#2b2b2b",
-                                         fg="#ffffff",
-                                         selectcolor="#2b2b2b",
-                                         activebackground="#2b2b2b",
-                                         activeforeground="#ffffff",
-                                         font=("Arial", 12),
-                                         command=lambda ct=content_type: self.update_checkboxes(ct, edit=True))
-                edit_cb.pack(anchor="w", pady=5)
+        # Posts
+        self.content_vars["posts"] = tk.BooleanVar(value=True)
+        self.only_edit_vars["posts"] = tk.BooleanVar(value=False)
+        tk.Checkbutton(left_column, text="Delete posts", variable=self.content_vars["posts"],
+                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b", activebackground="#2b2b2b",
+                    activeforeground="#ffffff", font=("Arial", 12),
+                    command=lambda: self.update_checkboxes("posts")).pack(anchor="w", pady=5)
+        tk.Checkbutton(right_column, text="Only edit posts", variable=self.only_edit_vars["posts"],
+                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b", activebackground="#2b2b2b",
+                    activeforeground="#ffffff", font=("Arial", 12),
+                    command=lambda: self.update_checkboxes("posts", edit=True)).pack(anchor="w", pady=5)
+
+        # Upvotes and Downvotes
+        self.content_vars["upvotes"] = tk.BooleanVar(value=True)
+        self.content_vars["downvotes"] = tk.BooleanVar(value=True)
+        tk.Checkbutton(left_column, text="Delete upvotes", variable=self.content_vars["upvotes"],
+                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b", activebackground="#2b2b2b",
+                    activeforeground="#ffffff", font=("Arial", 12)).pack(anchor="w", pady=5)
+        tk.Checkbutton(right_column, text="Delete downvotes", variable=self.content_vars["downvotes"],
+                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b", activebackground="#2b2b2b",
+                    activeforeground="#ffffff", font=("Arial", 12)).pack(anchor="w", pady=5)
+
+        # Saved and Hidden
+        self.content_vars["saved"] = tk.BooleanVar(value=True)
+        self.content_vars["hidden"] = tk.BooleanVar(value=True)
+        tk.Checkbutton(left_column, text="Delete saved", variable=self.content_vars["saved"],
+                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b", activebackground="#2b2b2b",
+                    activeforeground="#ffffff", font=("Arial", 12)).pack(anchor="w", pady=5)
+        tk.Checkbutton(right_column, text="Delete hidden", variable=self.content_vars["hidden"],
+                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b", activebackground="#2b2b2b",
+                    activeforeground="#ffffff", font=("Arial", 12)).pack(anchor="w", pady=5)
 
         # Advertising option with question mark
         self.advertise_var = tk.BooleanVar(value=True)
@@ -173,14 +186,14 @@ class RedditContentRemoverGUI:
         advertise_frame.pack(fill="x", pady=10)
 
         advertise_cb = tk.Checkbutton(advertise_frame,
-                                      text="Advertise Ereddicator",
-                                      variable=self.advertise_var,
-                                      bg="#2b2b2b",
-                                      fg="#ffffff",
-                                      selectcolor="#2b2b2b",
-                                      activebackground="#2b2b2b",
-                                      activeforeground="#ffffff",
-                                      font=("Arial", 12))
+                                    text="Advertise Ereddicator",
+                                    variable=self.advertise_var,
+                                    bg="#2b2b2b",
+                                    fg="#ffffff",
+                                    selectcolor="#2b2b2b",
+                                    activebackground="#2b2b2b",
+                                    activeforeground="#ffffff",
+                                    font=("Arial", 12))
         advertise_cb.pack(side="left", pady=5)
 
         ad_question_button = tk.Button(advertise_frame, text="?", font=("Arial", 10), bg="#3c3c3c", fg="#ffffff")
@@ -222,7 +235,7 @@ class RedditContentRemoverGUI:
         self.create_tooltip(post_question_button, post_tooltip_text)
 
         self.start_button = tk.Button(main_frame, text="Start Content Removal", command=self.start_removal,
-                                      bg="#ffffff", fg="#000000", font=("Arial", 14))
+                                    bg="#ffffff", fg="#000000", font=("Arial", 14))
         self.start_button.pack(pady=(20, 20))
 
     def create_tooltip(self, widget: tk.Widget, text: str) -> None:
