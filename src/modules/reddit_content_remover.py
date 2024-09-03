@@ -88,6 +88,22 @@ class RedditContentRemover:
         except AttributeError:
             return f"{item_type.capitalize()} item (ID: {getattr(item, 'id', 'N/A')})"
 
+    def edit_item_multiple_times(self, item: Union[praw.models.Comment, praw.models.Submission], edit_count: int = 3) -> None:
+        """
+        Edit a Reddit item (comment or post) multiple times before deletion.
+
+        Args:
+            item (Union[praw.models.Comment, praw.models.Submission]): The item to edit.
+            edit_count (int): The number of times to edit the item. Defaults to 3.
+        """
+        for _ in range(edit_count):
+            if self.interrupt_flag:
+                break
+            replacement_text = self.get_replacement_text()
+            print(f"Editing {type(item).__name__} with {'advertising' if replacement_text == self.ad_text else 'random'} text.")
+            item.edit(replacement_text)
+            time.sleep(0.5)
+
     def process_item(self, item: Union[praw.models.Comment, praw.models.Submission],
                      item_type: str, processed_counts: Dict[str, int], max_retries: int = 5) -> bool:
         """
@@ -109,22 +125,26 @@ class RedditContentRemover:
             try:
                 item_info = self.get_item_info(item, item_type)
                 if item_type == "comments":
-                    replacement_text = self.get_replacement_text()
-                    print(f"Replacing original comment '{item_info}' with "
-                          f"{'advertising' if replacement_text == self.ad_text else 'random'} text.")
-                    item.edit(replacement_text)
-                    print(f"Deleting comment: '{item_info}'")
-                    item.delete()
+                    if self.preferences.only_edit_comments:
+                        self.edit_item_multiple_times(item)
+                    else:
+                        self.edit_item_multiple_times(item)
+                        print(f"Deleting comment: '{item_info}'")
+                        item.delete()
                 elif item_type == "posts":
+                    # 'If this is true, it is a 'Text' Post. Otherwise it is a 'Link' Post.
                     if item.is_self:
-                        replacement_text = self.get_replacement_text()
-                        print(f"Replacing content of 'Text {item_info}' with "
-                              f"{'advertising' if replacement_text == self.ad_text else 'random'} text.")
-                        item.edit(replacement_text)
+                        if self.preferences.only_edit_posts:
+                            self.edit_item_multiple_times(item)
+                        else:
+                            self.edit_item_multiple_times(item)
+                            print(f"Deleting Text Post: '{item_info}'")
+                            item.delete()
                     else:
                         print(f"It is impossible to edit content of 'Link {item_info}'.")
-                    print(f"Deleting post: '{item_info}'")
-                    item.delete()
+                        if not self.preferences.only_edit_posts:
+                            print(f"Deleting Link Post: '{item_info}'")
+                            item.delete()
                 elif item_type == "saved":
                     print(f"Unsaving item: {item_info}")
                     item.unsave()
@@ -282,7 +302,7 @@ class RedditContentRemover:
 
             # Fetch comments and posts...
             for sort_type in ["controversial", "top", "new", "hot"]:
-                if self.preferences.delete_comments:
+                if self.preferences.delete_comments or self.preferences.only_edit_comments:
                     print(f"Fetching comments sorted by {sort_type}...")
                     comments = self.fetch_items(getattr(redditor.comments, sort_type), sort_type)
                     if self.preferences.comment_karma_threshold is not None:
@@ -290,7 +310,7 @@ class RedditContentRemover:
                     items["comments"].update(comments)
                     print(f"Total unique comments found so far: {len(items['comments'])}")
 
-                if self.preferences.delete_posts:
+                if self.preferences.delete_posts or self.preferences.only_edit_posts:
                     print(f"Fetching posts sorted by {sort_type}...")
                     posts = self.fetch_items(getattr(redditor.submissions, sort_type), sort_type)
                     if self.preferences.post_karma_threshold is not None:
@@ -303,7 +323,7 @@ class RedditContentRemover:
             for item_type in ["posts", "comments"]:
                 if self.interrupt_flag:
                     break
-                if getattr(self.preferences, f"delete_{item_type}"):
+                if getattr(self.preferences, f"delete_{item_type}") or getattr(self.preferences, f"only_edit_{item_type}"):
                     total_items = len(items[item_type])
                     print(f"Processing {total_items} {item_type}...")
                     self.process_items_in_batches(list(items[item_type]), item_type, total_items, processed_counts)
