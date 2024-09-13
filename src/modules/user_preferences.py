@@ -62,7 +62,7 @@ class UserPreferences:
             bool: True if the subreddit should be processed, False otherwise.
         """
         if self.whitelist_subreddits:
-            return subreddit_name not in self.whitelist_subreddits
+            return subreddit_name.lower() not in self.whitelist_subreddits
         elif self.blacklist_subreddits:
-            return subreddit_name in self.blacklist_subreddits
-        return True  # Process all subreddits if neither whitelist nor blacklist is set
+            return subreddit_name.lower() in self.blacklist_subreddits
+        return True

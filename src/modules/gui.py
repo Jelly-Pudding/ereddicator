@@ -373,8 +373,8 @@ class RedditContentRemoverGUI:
         whitelist_text = self.whitelist_entry.get()
         blacklist_text = self.blacklist_entry.get()
 
-        self.preferences.whitelist_subreddits = [s.strip() for s in whitelist_text.split(",") if s.strip() and s != "You can leave this blank."]
-        self.preferences.blacklist_subreddits = [s.strip() for s in blacklist_text.split(",") if s.strip() and s != "You can leave this blank."]
+        self.preferences.whitelist_subreddits = [s.strip().lower() for s in whitelist_text.split(",") if s.strip() and s != "You can leave this blank."]
+        self.preferences.blacklist_subreddits = [s.strip().lower() for s in blacklist_text.split(",") if s.strip() and s != "You can leave this blank."]
 
         if self.preferences.whitelist_subreddits and self.preferences.blacklist_subreddits:
             messagebox.showerror("Error", "You cannot set both a whitelist and a blacklist. Please choose one or leave both blank.")
