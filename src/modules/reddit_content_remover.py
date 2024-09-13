@@ -71,11 +71,11 @@ class RedditContentRemover:
     def get_item_info(self, item: Union[praw.models.Comment, praw.models.Submission], item_type: str) -> str:
         """
         Get a string representation of the item for logging purposes.
-        
+
         Args:
             item (Union[praw.models.Comment, praw.models.Submission]): The Reddit item.
             item_type (str): The type of the item.
-        
+
         Returns:
             str: A string representation of the item.
         """
@@ -89,7 +89,8 @@ class RedditContentRemover:
         except AttributeError:
             return f"{item_type.capitalize()} item (ID: {getattr(item, 'id', 'N/A')})"
 
-    def edit_item_multiple_times(self, item: Union[praw.models.Comment, praw.models.Submission], item_type: str, edit_count: int = 3, max_retries: int = 5) -> None:
+    def edit_item_multiple_times(self, item: Union[praw.models.Comment, praw.models.Submission],
+                                 item_type: str, edit_count: int = 3, max_retries: int = 5) -> None:
         """
         Edit a Reddit item (comment or post) multiple times before deletion, with retry mechanism.
 
@@ -106,7 +107,10 @@ class RedditContentRemover:
             replacement_text = self.get_replacement_text()
             for attempt in range(max_retries):
                 try:
-                    print(f"Edit {i+1}/{edit_count}: Editing {item_type[:-1]} '{item_info}' with {'advertising' if replacement_text == self.ad_text else 'random'} text.")
+                    print(
+                        f"Edit {i+1}/{edit_count}: Editing {item_type[:-1]} '{item_info}' "
+                        f"with {'advertising' if replacement_text == self.ad_text else 'random'} text."
+                    )
                     item.edit(replacement_text)
                     break
                 except praw.exceptions.RedditAPIException as e:
@@ -123,7 +127,7 @@ class RedditContentRemover:
             time.sleep(0.8)
 
     def process_item(self, item: Union[praw.models.Comment, praw.models.Submission],
-                     item_type: str, deleted_counts: Dict[str, int], edited_counts: Dict[str, int], max_retries: int = 5) -> bool:
+                     item_type: str, max_retries: int = 5) -> Tuple[int, int]:
         """
         Process a single Reddit item (comment, post, etc.) for removal or modification.
 
@@ -131,57 +135,57 @@ class RedditContentRemover:
             item (Union[praw.models.Comment, praw.models.Submission]):
                 The Reddit item to process. Can be either a Comment or a Submission.
             item_type (str): The type of item ('comments', 'posts', 'saved', 'upvotes', 'downvotes', 'hidden').
-            deleted_counts (Dict[str, int]): A dictionary to keep track of deleted items.
-            edited_counts (Dict[str, int]): A dictionary to keep track of edited items.
             max_retries (int): Maximum number of retry attempts. Defaults to 5.
 
         Returns:
-            bool: True if the item was successfully processed, False otherwise.
+            Tuple[int, int]: A tuple containing (deleted_count, edited_count).
         """
+        deleted_count = 0
+        edited_count = 0
         for attempt in range(max_retries):
             if self.interrupt_flag:
-                return False
+                return (deleted_count, edited_count)
             try:
                 item_info = self.get_item_info(item, item_type)
                 if item_type == "comments":
                     if self.preferences.only_edit_comments:
                         self.edit_item_multiple_times(item, item_type)
-                        edited_counts[item_type] += 1
+                        edited_count = 1
                     else:
                         self.edit_item_multiple_times(item, item_type)
                         print(f"Deleting comment: '{item_info}'")
                         item.delete()
-                        deleted_counts[item_type] += 1
+                        deleted_count = 1
                 elif item_type == "posts":
                     if item.is_self:
                         if self.preferences.only_edit_posts:
                             self.edit_item_multiple_times(item, item_type)
-                            edited_counts[item_type] += 1
+                            edited_count = 1
                         else:
                             self.edit_item_multiple_times(item, item_type)
                             print(f"Deleting Text Post: '{item_info}'")
                             item.delete()
-                            deleted_counts[item_type] += 1
+                            deleted_count = 1
                     else:
                         print(f"It is impossible to edit content of 'Link {item_info}'.")
                         if not self.preferences.only_edit_posts:
                             print(f"Deleting Link Post: '{item_info}'")
                             item.delete()
-                            deleted_counts[item_type] += 1
+                            deleted_count = 1
                 elif item_type == "saved":
                     print(f"Unsaving item: {item_info}")
                     item.unsave()
-                    deleted_counts[item_type] += 1
+                    deleted_count = 1
                 elif item_type in ["upvotes", "downvotes"]:
                     print(f"Attempting to clear {item_type[:-1]} on item: {item_info}")
                     item.clear_vote()
                     print(f"Successfully cleared {item_type[:-1]} on item: {item_info}")
-                    deleted_counts[item_type] += 1
+                    deleted_count = 1
                 elif item_type == "hidden":
                     print(f"Unhiding post: {item_info}")
                     item.unhide()
-                    deleted_counts[item_type] += 1
-                return True
+                    deleted_count = 1
+                return (deleted_count, edited_count)
             except (praw.exceptions.RedditAPIException, ResponseException) as e:
                 if isinstance(e, ResponseException) and e.response.status_code == 400:
                     print(
@@ -190,35 +194,48 @@ class RedditContentRemover:
                         "Note: You can disable the option to make your votes public "
                         "in Reddit's settings."
                     )
-                    return True
+                    return (deleted_count, edited_count)
                 if isinstance(e, praw.exceptions.RedditAPIException):
                     print(f"Encountered a Reddit API Exception. Probably hit the rate limit: {e}")
                 if attempt < max_retries - 1:
                     sleep_time = (2 ** attempt) + (random.randint(0, 1000) / 1000)
                     print(f"\nAttempt {attempt + 1} failed. Retrying in {sleep_time:.2f} seconds...")
-                    for _ in range(int(sleep_time * 10)):  # Check interrupt flag every 0.1 seconds
+                    for _ in range(int(sleep_time * 10)):
                         if self.interrupt_flag:
-                            return False
+                            return (deleted_count, edited_count)
                         time.sleep(0.1)
                 else:
                     print(f"Failed to process {item_type} after {max_retries} attempts.")
-        return False
+        return (deleted_count, edited_count)
 
     def process_batch(self, items: List[Union[praw.models.Comment, praw.models.Submission]],
-                    item_type: str, batch_number: int, total_deleted: int, total_edited: int,
-                    total_items: int, deleted_counts: Dict[str, int], edited_counts: Dict[str, int]) -> Tuple[int, int]:
+                      item_type: str, batch_number: int, total_deleted: int, total_edited: int,
+                      total_items: int) -> Tuple[int, int]:
+        """
+        Process a batch of Reddit items concurrently using threads.
+
+        Args:
+            items (List[Union[praw.models.Comment, praw.models.Submission]]): The list of items to process.
+            item_type (str): The type of the items ('comments', 'posts', 'saved', 'upvotes', 'downvotes', 'hidden').
+            batch_number (int): The batch number being processed.
+            total_deleted (int): The cumulative total of deleted items before this batch.
+            total_edited (int): The cumulative total of edited items before this batch.
+            total_items (int): The total number of items to process.
+
+        Returns:
+            Tuple[int, int]: The updated total_deleted and total_edited counts after processing the batch.
+        """
         print(f"Starting batch {batch_number} for {item_type}")
 
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            futures = [executor.submit(self.process_item, item, item_type, deleted_counts, edited_counts) for item in items]
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [executor.submit(self.process_item, item, item_type) for item in items]
             for future in as_completed(futures):
                 if self.interrupt_flag:
                     executor.shutdown(wait=False)
                     return total_deleted, total_edited
-                if future.result():
-                    total_deleted += deleted_counts[item_type]
-                    if item_type in ["comments", "posts"]:
-                        total_edited += edited_counts[item_type]
+                deleted_count, edited_count = future.result()
+                total_deleted += deleted_count
+                total_edited += edited_count
 
         print(f"Progress: {total_deleted} {item_type} deleted, {total_edited} edited out of {total_items} processed so far.")
         print(f"Finished batch {batch_number} for {item_type}. Sleeping for five seconds...")
@@ -229,8 +246,7 @@ class RedditContentRemover:
         return total_deleted, total_edited
 
     def process_items_in_batches(self, items: List[Union[praw.models.Comment, praw.models.Submission]],
-                                 item_type: str, total_items: int,
-                                 deleted_counts: Dict[str, int], edited_counts: Dict[str, int]) -> Tuple[int, int]:
+                                 item_type: str, total_items: int) -> Tuple[int, int]:
         """
         Process a list of Reddit items in batches.
 
@@ -239,11 +255,9 @@ class RedditContentRemover:
                 A list of Reddit items to process. Can be either Comments or Submissions.
             item_type (str): The type of the items ('comments', 'posts', 'saved', 'upvotes', 'downvotes', 'hidden').
             total_items (int): The total number of items to process.
-            deleted_counts (Dict[str, int]): A dictionary to keep track of deleted items.
-            edited_counts (Dict[str, int]): A dictionary to keep track of edited items.
 
         Returns:
-            Tuple[int, int]: The total number of deleted and edited items.
+            Tuple[int, int]: The total number of deleted and edited items after processing all batches.
         """
         batch = []
         batch_number = 1
@@ -254,14 +268,14 @@ class RedditContentRemover:
             batch.append(item)
             if len(batch) == 50:
                 total_deleted, total_edited = self.process_batch(
-                    batch, item_type, batch_number, total_deleted, total_edited, total_items, deleted_counts, edited_counts
+                    batch, item_type, batch_number, total_deleted, total_edited, total_items
                 )
                 batch = []
                 batch_number += 1
 
         if batch:
             total_deleted, total_edited = self.process_batch(
-                batch, item_type, batch_number, total_deleted, total_edited, total_items, deleted_counts, edited_counts
+                batch, item_type, batch_number, total_deleted, total_edited, total_items
             )
 
         return total_deleted, total_edited
@@ -283,7 +297,7 @@ class RedditContentRemover:
         """
         if sort_type in ["controversial", "top"]:
             return list(item_listing(time_filter="all", limit=None))
-        # 'new' and 'hot' do not use use 'time_filter'.
+        # 'new' and 'hot' do not use 'time_filter'.
         return list(item_listing(limit=None))
 
     def delete_all_content(self) -> Tuple[Dict[str, int], Dict[str, int]]:
@@ -336,7 +350,11 @@ class RedditContentRemover:
                 if getattr(self.preferences, f"delete_{item_type}") or getattr(self.preferences, f"only_edit_{item_type}"):
                     total_items = len(items[item_type])
                     print(f"Processing {total_items} {item_type}...")
-                    self.process_items_in_batches(list(items[item_type]), item_type, total_items, deleted_counts, edited_counts)
+                    deleted_count, edited_count = self.process_items_in_batches(
+                        list(items[item_type]), item_type, total_items
+                    )
+                    deleted_counts[item_type] += deleted_count
+                    edited_counts[item_type] += edited_count
 
             # Only now fetch other content types...
             if self.preferences.delete_saved:
@@ -366,7 +384,10 @@ class RedditContentRemover:
                 if getattr(self.preferences, f"delete_{item_type}"):
                     total_items = len(items[item_type])
                     print(f"Processing {total_items} {item_type}...")
-                    self.process_items_in_batches(list(items[item_type]), item_type, total_items, deleted_counts, edited_counts)
+                    deleted_count, _ = self.process_items_in_batches(
+                        list(items[item_type]), item_type, total_items
+                    )
+                    deleted_counts[item_type] += deleted_count
 
         finally:
             for item_type, count in deleted_counts.items():
