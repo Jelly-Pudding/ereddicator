@@ -26,7 +26,7 @@ def run_content_remover(preferences: UserPreferences, reddit: praw.Reddit, auth:
         Exception: Any unexpected errors during the content removal process.
     """
     if not preferences.any_selected():
-        print("No content types selected for deletion. Exiting.")
+        print("No content types selected for deletion or editing. Exiting.")
         return
 
     run_count = 0
@@ -43,21 +43,23 @@ def run_content_remover(preferences: UserPreferences, reddit: praw.Reddit, auth:
         while True:
             run_count += 1
             print(f"\nStarting run #{run_count}")
-            print("Removing Reddit content...")
-            processed_counts = content_remover.delete_all_content()
+            print("Processing Reddit content...")
+            deleted_counts, edited_counts = content_remover.delete_all_content()
 
             if content_remover.interrupt_flag:
                 print("Run interrupted.")
                 break
 
-            print("\nContent destroyed in this run:")
-            for item_type, count in processed_counts.items():
-                print(f"{item_type.capitalize()}: {count}")
+            print("\nContent processed in this run:")
+            for item_type, count in deleted_counts.items():
+                print(f"{item_type.capitalize()} deleted: {count}")
+            for item_type, count in edited_counts.items():
+                print(f"{item_type.capitalize()} edited: {count}")
 
-            if all(count == 0 for count in processed_counts.values()):
-                print("\nNo content was destroyed in this run. Stopping runs...")
+            if all(count == 0 for count in deleted_counts.values()):
+                print("\nNo content was deleted in this run. Stopping runs...")
                 break
-            print("\nSome content was destroyed. Running the script again in 7 seconds...")
+            print("\nSome content was deleted. Running the script again in 7 seconds...")
             for _ in range(70):  # Check interrupt every 0.1 seconds
                 if content_remover.interrupt_flag:
                     break
@@ -68,9 +70,11 @@ def run_content_remover(preferences: UserPreferences, reddit: praw.Reddit, auth:
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
     finally:
-        print(f"\nTotal content destroyed across {run_count} {'run' if run_count == 1 else 'runs'}:")
-        for item_type, count in content_remover.total_processed_dict.items():
-            print(f"{item_type.capitalize()}: {count}")
+        print(f"\nTotal content processed across {run_count} {'run' if run_count == 1 else 'runs'}:")
+        for item_type, count in content_remover.total_deleted_dict.items():
+            print(f"{item_type.capitalize()} deleted: {count}")
+        for item_type, count in content_remover.total_edited_dict.items():
+            print(f"{item_type.capitalize()} edited: {count}")
         if auth.is_exe:
             print("\nPress Enter to exit...")
             input()
