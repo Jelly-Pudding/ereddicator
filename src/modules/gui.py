@@ -118,6 +118,24 @@ class RedditContentRemoverGUI:
         self.preferences = UserPreferences()
         self.create_widgets()
 
+    def on_entry_click(self, event, entry):
+        """
+        Handle the event when an entry field is clicked.
+        Remove the placeholder text if it's present.
+        """
+        if entry.get() == "You can leave this blank.":
+            entry.delete(0, "end")
+            entry.config(fg="white")
+
+    def on_focus_out(self, event, entry):
+        """
+        Handle the event when focus leaves an entry field.
+        Restore the placeholder text if the field is empty.
+        """
+        if entry.get() == "":
+            entry.insert(0, "You can leave this blank.")
+            entry.config(fg="grey")
+
     def create_widgets(self) -> None:
         main_frame = tk.Frame(self.master, bg='#2b2b2b')
         main_frame.pack(padx=20, pady=20, fill=tk.BOTH, expand=True)
@@ -239,6 +257,8 @@ class RedditContentRemoverGUI:
         whitelist_label.pack(side="left", padx=(0, 10))
         self.whitelist_entry = tk.Entry(whitelist_frame, bg="#3c3c3c", fg="#ffffff", font=("Arial", 12), width=30)
         self.whitelist_entry.pack(side="left")
+        self.whitelist_entry.insert(0, "You can leave this blank.")
+        self.whitelist_entry.config(fg='grey')
 
         whitelist_question_button = tk.Button(whitelist_frame, text="?", font=("Arial", 10), bg="#3c3c3c", fg="#ffffff")
         whitelist_question_button.pack(side="left", padx=(5, 10))
@@ -254,12 +274,20 @@ class RedditContentRemoverGUI:
         blacklist_label.pack(side="left", padx=(0, 10))
         self.blacklist_entry = tk.Entry(blacklist_frame, bg="#3c3c3c", fg="#ffffff", font=("Arial", 12), width=30)
         self.blacklist_entry.pack(side="left")
+        self.blacklist_entry.insert(0, "You can leave this blank.")
+        self.blacklist_entry.config(fg='grey')
 
         blacklist_question_button = tk.Button(blacklist_frame, text="?", font=("Arial", 10), bg="#3c3c3c", fg="#ffffff")
         blacklist_question_button.pack(side="left", padx=(5, 10))
 
         blacklist_tooltip_text = "Comma-separated list of subreddits to EXCLUSIVELY process. E.g.: politics,worldnews,ukpolitics"
         self.create_tooltip(blacklist_question_button, blacklist_tooltip_text)
+
+        # Bind focus events to handle placeholder text
+        self.whitelist_entry.bind("<FocusIn>", lambda event: self.on_entry_click(event, self.whitelist_entry))
+        self.whitelist_entry.bind("<FocusOut>", lambda event: self.on_focus_out(event, self.whitelist_entry))
+        self.blacklist_entry.bind("<FocusIn>", lambda event: self.on_entry_click(event, self.blacklist_entry))
+        self.blacklist_entry.bind("<FocusOut>", lambda event: self.on_focus_out(event, self.blacklist_entry))
 
         self.start_button = tk.Button(main_frame, text="Start Content Removal", command=self.start_removal,
                                     bg="#ffffff", fg="#000000", font=("Arial", 14))
@@ -342,8 +370,11 @@ class RedditContentRemoverGUI:
         self.preferences.post_karma_threshold = None if self.post_threshold.get() == "*" else int(self.post_threshold.get())
         self.preferences.advertise_ereddicator = self.advertise_var.get()
 
-        self.preferences.whitelist_subreddits = [s.strip() for s in self.whitelist_entry.get().split(',') if s.strip()]
-        self.preferences.blacklist_subreddits = [s.strip() for s in self.blacklist_entry.get().split(',') if s.strip()]
+        whitelist_text = self.whitelist_entry.get()
+        blacklist_text = self.blacklist_entry.get()
+
+        self.preferences.whitelist_subreddits = [s.strip() for s in whitelist_text.split(",") if s.strip() and s != "You can leave this blank."]
+        self.preferences.blacklist_subreddits = [s.strip() for s in blacklist_text.split(",") if s.strip() and s != "You can leave this blank."]
 
         if self.preferences.whitelist_subreddits and self.preferences.blacklist_subreddits:
             messagebox.showerror("Error", "You cannot set both a whitelist and a blacklist. Please choose one or leave both blank.")
