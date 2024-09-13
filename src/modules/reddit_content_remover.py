@@ -30,6 +30,7 @@ class RedditContentRemover:
         self.preferences = preferences
         self.total_deleted_dict = {k: 0 for k in ["comments", "posts", "saved", "upvotes", "downvotes", "hidden"]}
         self.total_edited_dict = {k: 0 for k in ["comments", "posts"]}
+        self.processed_ids = set()
         self.interrupt_flag = False
         self.ad_text = (
             "Original Content erased using Ereddicator. "
@@ -150,6 +151,12 @@ class RedditContentRemover:
             else:
                 print(f"Skipping {item_type} in r/{subreddit_name} as it's not in the blacklist.")
             return (deleted_count, edited_count)
+
+        if hasattr(item, "id"):
+            if item.id in self.processed_ids:
+                print(f"Skipping already processed item with ID: {item.id}")
+                return (deleted_count, edited_count)
+            self.processed_ids.add(item.id)
 
         for attempt in range(max_retries):
             if self.interrupt_flag:
