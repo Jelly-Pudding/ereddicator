@@ -6,9 +6,12 @@ class UserPreferences:
     """
     A class to store and manage user preferences for Reddit content management.
 
-    This class uses boolean flags to indicate which types of content the user wants to delete or edit,
-    includes karma thresholds for comments and posts, an option to occasionally advertise
-    Ereddicator when editing text before deletion, and whitelist/blacklist options for subreddits.
+    This class provides options to:
+    1. Select which types of content to delete or edit (comments, posts, saved items, votes, and hidden posts).
+    2. Set karma thresholds for comments and posts to preserve highly-rated content.
+    3. Choose between deleting content or only editing it (for comments and posts).
+    4. Optionally advertise Ereddicator when editing content.
+    5. Specify subreddits to include or exclude from processing using whitelist and blacklist options.
 
     Attributes:
         delete_comments (bool): Flag to delete comments.
@@ -23,7 +26,7 @@ class UserPreferences:
             greater than or equal to this value will be kept. If None, all selected comments will be deleted.
         post_karma_threshold (Optional[int]): Karma threshold for posts. Posts with karma
             greater than or equal to this value will be kept. If None, all selected posts will be deleted.
-        advertise_ereddicator (bool): Flag to occasionally advertise Ereddicator when editing text before deletion.
+        advertise_ereddicator (bool): Flag to occasionally advertise Ereddicator when editing text.
         whitelist_subreddits (List[str]): List of subreddit names to preserve (not delete/edit content from).
         blacklist_subreddits (List[str]): List of subreddit names to exclusively delete/edit content from.
     """
