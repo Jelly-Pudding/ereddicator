@@ -119,9 +119,6 @@ class RedditContentRemoverGUI:
         self.create_widgets()
 
     def create_widgets(self) -> None:
-        """
-        Create and arrange the widgets for the main application GUI.
-        """
         main_frame = tk.Frame(self.master, bg='#2b2b2b')
         main_frame.pack(padx=20, pady=20, fill=tk.BOTH, expand=True)
 
@@ -199,7 +196,7 @@ class RedditContentRemoverGUI:
         ad_question_button = tk.Button(advertise_frame, text="?", font=("Arial", 10), bg="#3c3c3c", fg="#ffffff")
         ad_question_button.pack(side="left", padx=(5, 10))
 
-        ad_tooltip_text = "Occasionally replaces content with ad instead of random text before deletion"
+        ad_tooltip_text = "Occasionally replaces content with ad instead of random text when editing"
         self.create_tooltip(ad_question_button, ad_tooltip_text)
 
         # Comment karma threshold with question mark
@@ -233,6 +230,36 @@ class RedditContentRemoverGUI:
 
         post_tooltip_text = "Use '*' to delete all posts, or enter a number to keep posts with karma greater than or equal to that number"
         self.create_tooltip(post_question_button, post_tooltip_text)
+
+        # Whitelist Subreddits input
+        whitelist_frame = tk.Frame(main_frame, bg="#2b2b2b")
+        whitelist_frame.pack(fill="x", pady=10)
+
+        whitelist_label = tk.Label(whitelist_frame, text="Whitelist Subreddits:", bg="#2b2b2b", fg="#ffffff", font=("Arial", 12))
+        whitelist_label.pack(side="left", padx=(0, 10))
+        self.whitelist_entry = tk.Entry(whitelist_frame, bg="#3c3c3c", fg="#ffffff", font=("Arial", 12), width=30)
+        self.whitelist_entry.pack(side="left")
+
+        whitelist_question_button = tk.Button(whitelist_frame, text="?", font=("Arial", 10), bg="#3c3c3c", fg="#ffffff")
+        whitelist_question_button.pack(side="left", padx=(5, 10))
+
+        whitelist_tooltip_text = "Comma-separated list of subreddits to NOT process. E.g.: aww,funny,showerthoughts"
+        self.create_tooltip(whitelist_question_button, whitelist_tooltip_text)
+
+        # Blacklist Subreddits input
+        blacklist_frame = tk.Frame(main_frame, bg="#2b2b2b")
+        blacklist_frame.pack(fill="x", pady=10)
+
+        blacklist_label = tk.Label(blacklist_frame, text="Blacklist Subreddits:", bg="#2b2b2b", fg="#ffffff", font=("Arial", 12))
+        blacklist_label.pack(side="left", padx=(0, 10))
+        self.blacklist_entry = tk.Entry(blacklist_frame, bg="#3c3c3c", fg="#ffffff", font=("Arial", 12), width=30)
+        self.blacklist_entry.pack(side="left")
+
+        blacklist_question_button = tk.Button(blacklist_frame, text="?", font=("Arial", 10), bg="#3c3c3c", fg="#ffffff")
+        blacklist_question_button.pack(side="left", padx=(5, 10))
+
+        blacklist_tooltip_text = "Comma-separated list of subreddits to EXCLUSIVELY process. E.g.: politics,worldnews,ukpolitics"
+        self.create_tooltip(blacklist_question_button, blacklist_tooltip_text)
 
         self.start_button = tk.Button(main_frame, text="Start Content Removal", command=self.start_removal,
                                     bg="#ffffff", fg="#000000", font=("Arial", 14))
@@ -305,9 +332,6 @@ class RedditContentRemoverGUI:
         self.post_label.config(fg="#ffffff" if post_state == "normal" else "#808080")
 
     def start_removal(self) -> None:
-        """
-        Prepare user preferences and start the content removal process.
-        """
         for content_type, var in self.content_vars.items():
             setattr(self.preferences, f"delete_{content_type}", var.get())
 
@@ -317,6 +341,13 @@ class RedditContentRemoverGUI:
         self.preferences.comment_karma_threshold = None if self.comment_threshold.get() == "*" else int(self.comment_threshold.get())
         self.preferences.post_karma_threshold = None if self.post_threshold.get() == "*" else int(self.post_threshold.get())
         self.preferences.advertise_ereddicator = self.advertise_var.get()
+
+        self.preferences.whitelist_subreddits = [s.strip() for s in self.whitelist_entry.get().split(',') if s.strip()]
+        self.preferences.blacklist_subreddits = [s.strip() for s in self.blacklist_entry.get().split(',') if s.strip()]
+
+        if self.preferences.whitelist_subreddits and self.preferences.blacklist_subreddits:
+            messagebox.showerror("Error", "You cannot set both a whitelist and a blacklist. Please choose one or leave both blank.")
+            return
 
         self.master.destroy()
         self.start_removal_callback(self.preferences)

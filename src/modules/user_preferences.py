@@ -1,5 +1,5 @@
-from typing import Optional
-from dataclasses import dataclass
+from typing import Optional, List
+from dataclasses import dataclass, field
 
 @dataclass
 class UserPreferences:
@@ -7,9 +7,8 @@ class UserPreferences:
     A class to store and manage user preferences for Reddit content management.
 
     This class uses boolean flags to indicate which types of content the user wants to delete or edit,
-    includes karma thresholds for comments and posts, and an option to occasionally advertise
-    Ereddicator when editing text before deletion. Content with karma above or equal to
-    the threshold will be preserved.
+    includes karma thresholds for comments and posts, an option to occasionally advertise
+    Ereddicator when editing text before deletion, and whitelist/blacklist options for subreddits.
 
     Attributes:
         delete_comments (bool): Flag to delete comments.
@@ -25,6 +24,8 @@ class UserPreferences:
         post_karma_threshold (Optional[int]): Karma threshold for posts. Posts with karma
             greater than or equal to this value will be kept. If None, all selected posts will be deleted.
         advertise_ereddicator (bool): Flag to occasionally advertise Ereddicator when editing text before deletion.
+        whitelist_subreddits (List[str]): List of subreddit names to preserve (not delete/edit content from).
+        blacklist_subreddits (List[str]): List of subreddit names to exclusively delete/edit content from.
     """
 
     delete_comments: bool = True
@@ -38,6 +39,8 @@ class UserPreferences:
     comment_karma_threshold: Optional[int] = None
     post_karma_threshold: Optional[int] = None
     advertise_ereddicator: bool = False
+    whitelist_subreddits: List[str] = field(default_factory=list)
+    blacklist_subreddits: List[str] = field(default_factory=list)
 
     def any_selected(self) -> bool:
         """
@@ -47,3 +50,19 @@ class UserPreferences:
             bool: True if at least one content type is selected for deletion or modification, False otherwise.
         """
         return any(getattr(self, field) for field in self.__dataclass_fields__ if field.startswith('delete_') or field.startswith('only_edit_'))
+
+    def should_process_subreddit(self, subreddit_name: str) -> bool:
+        """
+        Determine if content from a given subreddit should be processed based on whitelist and blacklist.
+
+        Args:
+            subreddit_name (str): The name of the subreddit to check.
+
+        Returns:
+            bool: True if the subreddit should be processed, False otherwise.
+        """
+        if self.whitelist_subreddits:
+            return subreddit_name not in self.whitelist_subreddits
+        elif self.blacklist_subreddits:
+            return subreddit_name in self.blacklist_subreddits
+        return True  # Process all subreddits if neither whitelist nor blacklist is set

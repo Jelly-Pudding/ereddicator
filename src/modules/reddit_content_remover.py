@@ -142,6 +142,15 @@ class RedditContentRemover:
         """
         deleted_count = 0
         edited_count = 0
+
+        subreddit_name = item.subreddit.display_name if hasattr(item, "subreddit") else None
+        if subreddit_name and not self.preferences.should_process_subreddit(subreddit_name):
+            if self.preferences.whitelist_subreddits:
+                print(f"Skipping {item_type} in r/{subreddit_name} as it's in the whitelist.")
+            else:
+                print(f"Skipping {item_type} in r/{subreddit_name} as it's not in the blacklist.")
+            return (deleted_count, edited_count)
+
         for attempt in range(max_retries):
             if self.interrupt_flag:
                 return (deleted_count, edited_count)

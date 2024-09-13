@@ -83,13 +83,13 @@ def run_content_remover(preferences: UserPreferences, reddit: praw.Reddit, auth:
 def main():
     is_exe = getattr(sys, "frozen", False)
     if is_exe:
-        print("Please enter your credential information in the window that pops up. Leave this terminal open.")
+        print("Please enter your credential information in the window that pops up. Leave this terminal displaying this message open.")
     # Create an instance of RedditAuth and get the Reddit instance
     auth = RedditAuth(is_exe=is_exe)
     reddit = auth.get_reddit_instance()
 
     root = tk.Tk()
-    root.tk.call('tk', 'scaling', 1.0)  # This ensures consistent sizing across different DPI settings
+    root.tk.call("tk", "scaling", 1.0)  # This ensures consistent sizing across different DPI settings
     _ = RedditContentRemoverGUI(root, start_removal_callback=lambda prefs: run_content_remover(prefs, reddit, auth))
     root.mainloop()
 
