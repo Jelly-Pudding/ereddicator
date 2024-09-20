@@ -1,5 +1,7 @@
 from typing import Optional, List
 from dataclasses import dataclass, field
+from datetime import datetime
+
 
 @dataclass
 class UserPreferences:
@@ -12,6 +14,7 @@ class UserPreferences:
     3. Choose between deleting content or only editing it (for comments and posts).
     4. Optionally advertise Ereddicator when editing content.
     5. Specify subreddits to include or exclude from processing using whitelist and blacklist options.
+    6. Set a date range for content processing.
 
     Attributes:
         delete_comments (bool): Flag to delete comments.
@@ -29,6 +32,8 @@ class UserPreferences:
         advertise_ereddicator (bool): Flag to occasionally advertise Ereddicator when editing text.
         whitelist_subreddits (List[str]): List of subreddit names to preserve (not delete/edit content from).
         blacklist_subreddits (List[str]): List of subreddit names to exclusively delete/edit content from.
+        start_date (Optional[datetime]): The start date for content processing. Content before this date will be ignored if set.
+        end_date (Optional[datetime]): The end date for content processing. Content after this date will be ignored if set.
     """
 
     delete_comments: bool = True
@@ -44,6 +49,8 @@ class UserPreferences:
     advertise_ereddicator: bool = False
     whitelist_subreddits: List[str] = field(default_factory=list)
     blacklist_subreddits: List[str] = field(default_factory=list)
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
 
     def any_selected(self) -> bool:
         """
@@ -68,4 +75,22 @@ class UserPreferences:
             return subreddit_name.lower() not in self.whitelist_subreddits
         elif self.blacklist_subreddits:
             return subreddit_name.lower() in self.blacklist_subreddits
+        return True
+
+    def is_within_date_range(self, item_date: datetime) -> bool:
+        """
+        Check if a given date is within the specified date range.
+
+        Args:
+            item_date (datetime): The date of the item to check.
+
+        Returns:
+            bool: True if the item_date is within the specified range or if no range is specified, False otherwise.
+        """
+        if self.start_date and self.end_date:
+            return self.start_date <= item_date <= self.end_date
+        elif self.start_date:
+            return item_date >= self.start_date
+        elif self.end_date:
+            return item_date <= self.end_date
         return True

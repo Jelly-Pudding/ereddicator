@@ -1,8 +1,9 @@
 import tkinter as tk
 from tkinter import messagebox
 from typing import Dict, Callable
+from tkcalendar import DateEntry
+from datetime import datetime
 from modules.user_preferences import UserPreferences
-
 
 class CredentialsInputGUI:
     """
@@ -249,6 +250,30 @@ class RedditContentRemoverGUI:
         post_tooltip_text = "Use '*' to delete all posts, or enter a number to keep posts with karma greater than or equal to that number"
         self.create_tooltip(post_question_button, post_tooltip_text)
 
+        # Date range options
+        date_frame = tk.Frame(main_frame, bg="#2b2b2b")
+        date_frame.pack(fill="x", pady=10)
+
+        start_date_label = tk.Label(date_frame, text="Start Date:", bg="#2b2b2b", fg="#ffffff", font=("Arial", 12))
+        start_date_label.pack(side="left", padx=(0, 10))
+        self.start_date_entry = DateEntry(date_frame, width=12, background='darkblue', foreground='white', 
+                                          borderwidth=2, date_pattern='yyyy-mm-dd')
+        self.start_date_entry.pack(side="left", padx=(0, 20))
+        self.start_date_entry.delete(0, tk.END)  # Clear the default date
+
+        end_date_label = tk.Label(date_frame, text="End Date:", bg="#2b2b2b", fg="#ffffff", font=("Arial", 12))
+        end_date_label.pack(side="left", padx=(0, 10))
+        self.end_date_entry = DateEntry(date_frame, width=12, background='darkblue', foreground='white', 
+                                        borderwidth=2, date_pattern='yyyy-mm-dd')
+        self.end_date_entry.pack(side="left")
+        self.end_date_entry.delete(0, tk.END)  # Clear the default date
+
+        date_question_button = tk.Button(date_frame, text="?", font=("Arial", 10), bg="#3c3c3c", fg="#ffffff")
+        date_question_button.pack(side="left", padx=(5, 10))
+
+        date_tooltip_text = "Optional: Select a date range to process content from. Leave blank to process all content."
+        self.create_tooltip(date_question_button, date_tooltip_text)
+
         # Whitelist Subreddits input
         whitelist_frame = tk.Frame(main_frame, bg="#2b2b2b")
         whitelist_frame.pack(fill="x", pady=10)
@@ -379,6 +404,20 @@ class RedditContentRemoverGUI:
         if self.preferences.whitelist_subreddits and self.preferences.blacklist_subreddits:
             messagebox.showerror("Error", "You cannot set both a whitelist and a blacklist. Please choose one or leave both blank.")
             return
+
+        # Get date range
+        start_date = self.start_date_entry.get_date() if self.start_date_entry.get() else None
+        end_date = self.end_date_entry.get_date() if self.end_date_entry.get() else None
+
+        # Convert to datetime objects if dates are selected
+        self.preferences.start_date = datetime.combine(start_date, datetime.min.time()) if start_date else None
+        self.preferences.end_date = datetime.combine(end_date, datetime.max.time()) if end_date else None
+
+        # Validate date range
+        if self.preferences.start_date and self.preferences.end_date:
+            if self.preferences.start_date > self.preferences.end_date:
+                messagebox.showerror("Error", "Start date must be before end date.")
+                return
 
         self.master.destroy()
         self.start_removal_callback(self.preferences)
