@@ -3,6 +3,7 @@ import string
 import time
 from typing import Dict, List, Union, Callable, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
 import praw
 from prawcore import ResponseException
 from modules.user_preferences import UserPreferences
@@ -143,13 +144,29 @@ class RedditContentRemover:
         """
         deleted_count = 0
         edited_count = 0
+        item_info = self.get_item_info(item, item_type)
+
+        item_date = datetime.fromtimestamp(item.created_utc)
+        if not self.preferences.is_within_date_range(item_date):
+            print(
+                f"Skipping '{item_type}' from {item_date.strftime('%Y-%m-%d')} "
+                f"as it's outside the specified date range.\n"
+                f"Item info: {item_info}"
+            )
+            return (deleted_count, edited_count)
 
         subreddit_name = item.subreddit.display_name if hasattr(item, "subreddit") else None
         if subreddit_name and not self.preferences.should_process_subreddit(subreddit_name):
             if self.preferences.whitelist_subreddits:
-                print(f"Skipping {item_type} in r/{subreddit_name} as it's in the whitelist.")
+                print(
+                    f"Skipping '{item_type}' in r/{subreddit_name} as it's in the whitelist.\n"
+                    f"Item info: {item_info}"
+                )
             else:
-                print(f"Skipping {item_type} in r/{subreddit_name} as it's not in the blacklist.")
+                print(
+                    f"Skipping '{item_type}' in r/{subreddit_name} as it's not in the blacklist.\n"
+                    f"Item info: {item_info}"
+                )
             return (deleted_count, edited_count)
 
         if hasattr(item, "id"):
@@ -162,7 +179,6 @@ class RedditContentRemover:
             if self.interrupt_flag:
                 return (deleted_count, edited_count)
             try:
-                item_info = self.get_item_info(item, item_type)
                 if item_type == "comments":
                     if self.preferences.only_edit_comments:
                         self.edit_item_multiple_times(item, item_type)
