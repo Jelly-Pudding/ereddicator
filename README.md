@@ -83,7 +83,7 @@ If you don't want to install Python, you can use the `.exe` version of the scrip
 
 2. Run the following PyInstaller command:
    ```
-   python -m PyInstaller --onefile --console --name ereddicator --add-data "modules:modules" main.py
+   python -m PyInstaller --onefile --console --name ereddicator --add-data "modules:modules" --hidden-import "babel.numbers" main.py
    ```
 
    This command does the following:
