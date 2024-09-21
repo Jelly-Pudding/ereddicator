@@ -25,11 +25,23 @@ class CredentialsInputGUI:
         self.show_password = tk.BooleanVar(value=False)
         self.submitted_credentials = None
         self.create_widgets()
+        self.center_window()
 
         # Adjust window size after creating widgets.
         self.master.update()
         self.master.geometry(f"{self.master.winfo_reqwidth()}x{self.master.winfo_reqheight()}")
         self.master.resizable(False, False)
+
+    def center_window(self):
+        """
+        Center the credentials window on the screen.
+        """
+        self.master.update_idletasks()
+        width = self.master.winfo_width()
+        height = self.master.winfo_height()
+        x = (self.master.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.master.winfo_screenheight() // 2) - (height // 2)
+        self.master.geometry(f'{width}x{height}+{x}+{y}')
 
     def create_widgets(self) -> None:
         """
@@ -118,6 +130,18 @@ class RedditContentRemoverGUI:
 
         self.preferences = UserPreferences()
         self.create_widgets()
+        self.centre_window()
+
+    def centre_window(self):
+        """
+        Centre the window on the screen.
+        """
+        self.master.update_idletasks()
+        width = self.master.winfo_width()
+        height = self.master.winfo_height()
+        x = (self.master.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.master.winfo_screenheight() // 2) - (height // 2)
+        self.master.geometry(f'{width}x{height}+{x}+{y}')
 
     def on_entry_click(self, event, entry):
         """

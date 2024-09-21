@@ -11,11 +11,13 @@ This Python script allows you to delete all your Reddit comments, posts, saved i
   - Upvoted content
   - Downvoted content
   - Hidden posts
-- **Edit-Only Mode**: For comments and posts, you can choose to only edit the content without deleting it.
+- **Edit-Only Mode**: For comments and posts, you can choose to only edit the content without deleting it. This may be desirable as Reddit is capable of restoring deleted comments.
 - **Karma Threshold**: You can set karma thresholds for comments and posts. Content with karma above or equal to the threshold will be preserved.
 - **Subreddit Filtering**:
   - Whitelist: Specify subreddits to exclude from processing.
   - Blacklist: Specify subreddits to exclusively process, ignoring all others.
+- **Date Range Filtering**: Set a specific date range to process content from, allowing you to target content from a particular time period.
+- **Dry Run Mode**: Simulate the removal process without actually making any changes. In this mode, Ereddicator will print out what actions would be taken (e.g. what comments and posts will be deleted) without modifying any of your Reddit content.
 - **Advertise Option**: When enabled, there's a 50% chance for each comment or post to be replaced with an advertisement for Ereddicator instead of random text before deletion.
 
 Note: As an added measure against the original content being read, the content replacement process (with either random text or an advertisement) occurs three times immediately before the final edit or deletion.
@@ -47,8 +49,14 @@ If you don't want to install Python, you can use the `.exe` version of the scrip
 ### Installation
 
 1. Git clone this repository: `git clone https://github.com/Jelly-Pudding/ereddicator.git`
-2. Install this specific version of PRAW (Python Reddit API Wrapper):
-   `pip install praw==7.7.1`
+2. Navigate to the project directory:
+   ```
+   cd ereddicator
+   ```
+3. Install the required dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
 
 ### Instructions
 
