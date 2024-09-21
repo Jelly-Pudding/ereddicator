@@ -15,6 +15,7 @@ class UserPreferences:
     4. Optionally advertise Ereddicator when editing content.
     5. Specify subreddits to include or exclude from processing using whitelist and blacklist options.
     6. Set a date range for content processing.
+    7. Enable a dry run mode for testing without making actual changes.
 
     Attributes:
         delete_comments (bool): Flag to delete comments.
@@ -34,6 +35,7 @@ class UserPreferences:
         blacklist_subreddits (List[str]): List of subreddit names to exclusively delete/edit content from.
         start_date (Optional[datetime]): The start date for content processing. Content before this date will be ignored if set.
         end_date (Optional[datetime]): The end date for content processing. Content after this date will be ignored if set.
+        dry_run (bool): Flag to enable dry run mode. When True, no actual changes will be made to Reddit content.
     """
 
     delete_comments: bool = True
@@ -51,6 +53,7 @@ class UserPreferences:
     blacklist_subreddits: List[str] = field(default_factory=list)
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
+    dry_run: bool = False
 
     def any_selected(self) -> bool:
         """
