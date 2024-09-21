@@ -129,7 +129,7 @@ class RedditContentRemover:
             time.sleep(0.8)
 
     def process_item(self, item: Union[praw.models.Comment, praw.models.Submission],
-                     item_type: str, max_retries: int = 5) -> Tuple[int, int]:
+                    item_type: str, max_retries: int = 5) -> Tuple[int, int]:
         """
         Process a single Reddit item (comment, post, etc.) for removal or modification.
 
@@ -181,41 +181,65 @@ class RedditContentRemover:
             try:
                 if item_type == "comments":
                     if self.preferences.only_edit_comments:
-                        self.edit_item_multiple_times(item, item_type)
+                        if self.preferences.dry_run:
+                            print(f"[DRY RUN] Would edit comment: '{item_info}'")
+                        else:
+                            self.edit_item_multiple_times(item, item_type)
                         edited_count = 1
                     else:
-                        self.edit_item_multiple_times(item, item_type)
-                        print(f"Deleting comment: '{item_info}'")
-                        item.delete()
+                        if self.preferences.dry_run:
+                            print(f"[DRY RUN] Would edit and delete comment: '{item_info}'")
+                        else:
+                            self.edit_item_multiple_times(item, item_type)
+                            print(f"Deleting comment: '{item_info}'")
+                            item.delete()
                         deleted_count = 1
                 elif item_type == "posts":
                     if item.is_self:
                         if self.preferences.only_edit_posts:
-                            self.edit_item_multiple_times(item, item_type)
+                            if self.preferences.dry_run:
+                                print(f"[DRY RUN] Would edit text post: '{item_info}'")
+                            else:
+                                self.edit_item_multiple_times(item, item_type)
                             edited_count = 1
                         else:
-                            self.edit_item_multiple_times(item, item_type)
-                            print(f"Deleting Text Post: '{item_info}'")
-                            item.delete()
+                            if self.preferences.dry_run:
+                                print(f"[DRY RUN] Would edit and delete text post: '{item_info}'")
+                            else:
+                                self.edit_item_multiple_times(item, item_type)
+                                print(f"Deleting Text Post: '{item_info}'")
+                                item.delete()
                             deleted_count = 1
                     else:
                         print(f"It is impossible to edit content of 'Link {item_info}'.")
                         if not self.preferences.only_edit_posts:
-                            print(f"Deleting Link Post: '{item_info}'")
-                            item.delete()
+                            if self.preferences.dry_run:
+                                print(f"[DRY RUN] Would delete link post: '{item_info}'")
+                            else:
+                                print(f"Deleting Link Post: '{item_info}'")
+                                item.delete()
                             deleted_count = 1
                 elif item_type == "saved":
-                    print(f"Unsaving item: {item_info}")
-                    item.unsave()
+                    if self.preferences.dry_run:
+                        print(f"[DRY RUN] Would unsave item: {item_info}")
+                    else:
+                        print(f"Unsaving item: {item_info}")
+                        item.unsave()
                     deleted_count = 1
                 elif item_type in ["upvotes", "downvotes"]:
-                    print(f"Attempting to clear {item_type[:-1]} on item: {item_info}")
-                    item.clear_vote()
-                    print(f"Successfully cleared {item_type[:-1]} on item: {item_info}")
+                    if self.preferences.dry_run:
+                        print(f"[DRY RUN] Would clear {item_type[:-1]} on item: {item_info}")
+                    else:
+                        print(f"Attempting to clear {item_type[:-1]} on item: {item_info}")
+                        item.clear_vote()
+                        print(f"Successfully cleared {item_type[:-1]} on item: {item_info}")
                     deleted_count = 1
                 elif item_type == "hidden":
-                    print(f"Unhiding post: {item_info}")
-                    item.unhide()
+                    if self.preferences.dry_run:
+                        print(f"[DRY RUN] Would unhide post: {item_info}")
+                    else:
+                        print(f"Unhiding post: {item_info}")
+                        item.unhide()
                     deleted_count = 1
                 return (deleted_count, edited_count)
             except (praw.exceptions.RedditAPIException, ResponseException) as e:
