@@ -77,57 +77,5 @@ If you don't want to install Python, you can use the `.exe` version of the scrip
 5. Run the script using Python: `python main.py`.
 6. Follow the on-screen instructions in the GUI to configure your preferences and start the content removal process.
 
-## Generating the EXE File
-
-1. Navigate to the `src` directory of the project:
-   ```
-   cd path/to/ereddicator/src
-   ```
-
-2. Run the following PyInstaller command:
-   ```
-   python -m PyInstaller --onefile --console --name ereddicator --add-data "modules:modules" --hidden-import "babel.numbers" main.py
-   ```
-
-   This command does the following:
-   - `--onefile`: Creates a single executable file.
-   - `--console`: Keeps the console window open (useful for seeing any error messages).
-   - `--name ereddicator`: Names the output executable 'ereddicator'.
-   - `--add-data "modules:modules"`: Includes the `modules` directory in the executable.
-
-3. After the process completes, you'll find the `ereddicator.exe` file in the `dist` directory.
-
-4. Create a file called `praw.ini` in the same directory as the `ereddicator.exe` file. The content of `praw.ini` should be:
-
-   ```ini
-   [DEFAULT]
-   # A boolean to indicate whether or not to check for package updates.
-   check_for_updates=False
-
-   # Object to kind mappings
-   comment_kind=t1
-   message_kind=t4
-   redditor_kind=t2
-   submission_kind=t3
-   subreddit_kind=t5
-   trophy_kind=t6
-
-   # The URL prefix for OAuth-related requests.
-   oauth_url=https://oauth.reddit.com
-
-   # The amount of seconds of ratelimit to sleep for upon encountering a specific type of 429 error.
-   ratelimit_seconds=5
-
-   # The URL prefix for regular requests.
-   reddit_url=https://www.reddit.com
-
-   # The URL prefix for short URLs.
-   short_url=https://redd.it
-
-   # The timeout for requests to Reddit in number of seconds
-   timeout=16
-   ```
-
-5. The `ereddicator.exe` file is now ready to be distributed and used.
-
-Note: Make sure you have PyInstaller installed (`pip install pyinstaller`) before running the command.
+## Support Me
+Donations to my [patreon](https://www.patreon.com/lolwhatyesme) will help with the development of this project.
