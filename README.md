@@ -11,14 +11,17 @@ This Python script allows you to delete all your Reddit comments, posts, saved i
   - Upvoted content
   - Downvoted content
   - Hidden posts
-- **Edit-Only Mode**: For comments and posts, you can choose to only edit the content without deleting it. This may be desirable as Reddit is capable of restoring deleted comments.
+- **Edit-Only Mode**: For comments and posts, you can choose to only edit the content without deleting it. This may be desirable as Reddit is capable of restoring deleted comments. It may also be desirable as web crawlers that picked up your original content may overwrite it with the new text.
 - **Karma Threshold**: You can set karma thresholds for comments and posts. Content with karma above or equal to the threshold will be preserved.
+- **Preserve Gilded Content**: Option to preserve comments and posts that have been gilded (received Reddit gold).
+- **Preserve Distinguished Content**: Option to preserve comments and posts that have been distinguished by moderators.
 - **Subreddit Filtering**:
   - Whitelist: Specify subreddits to exclude from processing.
   - Blacklist: Specify subreddits to exclusively process, ignoring all others.
 - **Date Range Filtering**: Set a specific date range to process content from, allowing you to target content from a particular time period.
 - **Dry Run Mode**: Simulate the removal process without actually making any changes. In this mode, Ereddicator will print out what actions would be taken (e.g. what comments and posts will be deleted) without modifying any of your Reddit content.
-- **Advertise Option**: When enabled, there's a 50% chance for each comment or post to be replaced with an advertisement for Ereddicator instead of random text before deletion.
+- **Custom Replacement Text**: Specify custom text to replace your content during editing or before deletion. If not provided, random text will be used.
+- **Advertise Option**: When enabled, there's a 50% chance for each comment or post to be replaced with an advertisement for Ereddicator instead of random text or custom text.
 
 Note: As an added measure against the original content being read, the content replacement process (with either random text or an advertisement) occurs three times immediately before the final edit or deletion.
 
