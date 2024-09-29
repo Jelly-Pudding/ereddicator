@@ -167,6 +167,7 @@ class RedditContentRemoverGUI:
 
         self.content_vars = {}
         self.only_edit_vars = {}
+        self.preserve_vars = {}
 
         checkbox_frame = tk.Frame(main_frame, bg="#2b2b2b")
         checkbox_frame.pack(fill="x", pady=10)
@@ -220,6 +221,16 @@ class RedditContentRemoverGUI:
                     bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b", activebackground="#2b2b2b",
                     activeforeground="#ffffff", font=("Arial", 13)).pack(anchor="w", pady=5)
 
+        # Preserve Gilded and Distinguished
+        self.preserve_vars["gilded"] = tk.BooleanVar(value=False)
+        self.preserve_vars["distinguished"] = tk.BooleanVar(value=False)
+        tk.Checkbutton(left_column, text="Preserve gilded", variable=self.preserve_vars["gilded"],
+                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b", activebackground="#2b2b2b",
+                    activeforeground="#ffffff", font=("Arial", 13)).pack(anchor="w", pady=5)
+        tk.Checkbutton(right_column, text="Preserve mod distinguished", variable=self.preserve_vars["distinguished"],
+                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b", activebackground="#2b2b2b",
+                    activeforeground="#ffffff", font=("Arial", 13)).pack(anchor="w", pady=5)
+
         # Advertising option with question mark
         self.advertise_var = tk.BooleanVar(value=True)
         advertise_frame = tk.Frame(main_frame, bg="#2b2b2b")
@@ -239,7 +250,7 @@ class RedditContentRemoverGUI:
         ad_question_button = tk.Button(advertise_frame, text="?", font=("Arial", 10), bg="#3c3c3c", fg="#ffffff")
         ad_question_button.pack(side="left", padx=(5, 10))
 
-        ad_tooltip_text = "Occasionally replaces content with ad instead of random text when editing."
+        ad_tooltip_text = "Occasionally replaces content with an Ereddicator ad when editing."
         self.create_tooltip(ad_question_button, ad_tooltip_text)
 
         # Dry Run option
@@ -335,6 +346,28 @@ class RedditContentRemoverGUI:
         self.whitelist_entry.bind("<FocusOut>", lambda event: self.on_focus_out(event, self.whitelist_entry))
         self.blacklist_entry.bind("<FocusIn>", lambda event: self.on_entry_click(event, self.blacklist_entry))
         self.blacklist_entry.bind("<FocusOut>", lambda event: self.on_focus_out(event, self.blacklist_entry))
+
+        # Custom replacement text
+        custom_text_frame = tk.Frame(main_frame, bg="#2b2b2b")
+        custom_text_frame.pack(fill="x", pady=10)
+
+        custom_text_label = tk.Label(custom_text_frame, text="Custom replacement text:", bg="#2b2b2b", fg="#ffffff", font=("Arial", 13))
+        custom_text_label.pack(side="left", padx=(0, 10))
+
+        self.custom_text_entry = tk.Entry(custom_text_frame, bg="#3c3c3c", fg="#ffffff", font=("Arial", 12), width=30)
+        self.custom_text_entry.pack(side="left")
+        self.custom_text_entry.insert(0, "You can leave this blank.")
+        self.custom_text_entry.config(fg='grey')
+
+        custom_text_question_button = tk.Button(custom_text_frame, text="?", font=("Arial", 10), bg="#3c3c3c", fg="#ffffff")
+        custom_text_question_button.pack(side="left", padx=(5, 10))
+
+        custom_text_tooltip = "Enter custom text to replace your content.\nIf left blank, random text will replace your text."
+        self.create_tooltip(custom_text_question_button, custom_text_tooltip)
+
+        # Bind focus events to handle placeholder text
+        self.custom_text_entry.bind("<FocusIn>", lambda event: self.on_entry_click(event, self.custom_text_entry))
+        self.custom_text_entry.bind("<FocusOut>", lambda event: self.on_focus_out(event, self.custom_text_entry))
 
         # Date range options
         date_frame = tk.Frame(main_frame, bg="#2b2b2b")
@@ -459,6 +492,8 @@ class RedditContentRemoverGUI:
 
         self.preferences.only_edit_comments = self.only_edit_vars["comments"].get()
         self.preferences.only_edit_posts = self.only_edit_vars["posts"].get()
+        self.preferences.preserve_gilded = self.preserve_vars["gilded"].get()
+        self.preferences.preserve_distinguished = self.preserve_vars["distinguished"].get()
 
         self.preferences.comment_karma_threshold = None if self.comment_threshold.get() == "*" else int(self.comment_threshold.get())
         self.preferences.post_karma_threshold = None if self.post_threshold.get() == "*" else int(self.post_threshold.get())
@@ -488,6 +523,10 @@ class RedditContentRemoverGUI:
             if self.preferences.start_date > self.preferences.end_date:
                 messagebox.showerror("Error", "Start date must be before end date.")
                 return
+
+        # Get custom replacement text
+        custom_text = self.custom_text_entry.get()
+        self.preferences.custom_replacement_text = custom_text if custom_text != "You can leave this blank." else None
 
         self.master.destroy()
         self.start_removal_callback(self.preferences)

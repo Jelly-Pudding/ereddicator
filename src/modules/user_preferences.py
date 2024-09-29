@@ -12,10 +12,13 @@ class UserPreferences:
     1. Select which types of content to delete or edit (comments, posts, saved items, votes, and hidden posts).
     2. Set karma thresholds for comments and posts to preserve highly-rated content.
     3. Choose between deleting content or only editing it (for comments and posts).
-    4. Optionally advertise Ereddicator when editing content.
-    5. Specify subreddits to include or exclude from processing using whitelist and blacklist options.
-    6. Set a date range for content processing.
-    7. Enable a dry run mode for testing without making actual changes.
+    4. Preserve gilded content.
+    5. Preserve mod distinguished content.
+    6. Optionally advertise Ereddicator when editing content.
+    7. Specify subreddits to include or exclude from processing using whitelist and blacklist options.
+    8. Set a date range for content processing.
+    9. Enable a dry run mode for testing without making actual changes.
+    10. Specify custom text for replacing content.
 
     Attributes:
         delete_comments (bool): Flag to delete comments.
@@ -26,16 +29,19 @@ class UserPreferences:
         delete_hidden (bool): Flag to unhide hidden posts.
         only_edit_comments (bool): Flag to only edit comments without deleting.
         only_edit_posts (bool): Flag to only edit posts without deleting.
+        preserve_gilded (bool): Flag to preserve gilded content.
+        preserve_distinguished (bool): Flag to preserve mod distinguished content.
+        advertise_ereddicator (bool): Flag to occasionally advertise Ereddicator when editing text.
+        dry_run (bool): Flag to enable dry run mode. When True, no actual changes will be made to Reddit content.
         comment_karma_threshold (Optional[int]): Karma threshold for comments. Comments with karma
             greater than or equal to this value will be kept. If None, all selected comments will be deleted.
         post_karma_threshold (Optional[int]): Karma threshold for posts. Posts with karma
             greater than or equal to this value will be kept. If None, all selected posts will be deleted.
-        advertise_ereddicator (bool): Flag to occasionally advertise Ereddicator when editing text.
         whitelist_subreddits (List[str]): List of subreddit names to preserve (not delete/edit content from).
         blacklist_subreddits (List[str]): List of subreddit names to exclusively delete/edit content from.
         start_date (Optional[datetime]): The start date for content processing. Content before this date will be ignored if set.
         end_date (Optional[datetime]): The end date for content processing. Content after this date will be ignored if set.
-        dry_run (bool): Flag to enable dry run mode. When True, no actual changes will be made to Reddit content.
+        custom_replacement_text (Optional[str]): Custom text to use when replacing content.
     """
 
     delete_comments: bool = True
@@ -46,14 +52,17 @@ class UserPreferences:
     delete_hidden: bool = True
     only_edit_comments: bool = False
     only_edit_posts: bool = False
+    preserve_gilded: bool = False
+    preserve_distinguished: bool = False
+    advertise_ereddicator: bool = False
+    dry_run: bool = False
     comment_karma_threshold: Optional[int] = None
     post_karma_threshold: Optional[int] = None
-    advertise_ereddicator: bool = False
     whitelist_subreddits: List[str] = field(default_factory=list)
     blacklist_subreddits: List[str] = field(default_factory=list)
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
-    dry_run: bool = False
+    custom_replacement_text: Optional[str] = None
 
     def any_selected(self) -> bool:
         """

@@ -59,15 +59,16 @@ class RedditContentRemover:
         """
         Determines the text to replace the original content.
 
-        This method decides whether to use advertising text or random text based on user preferences
-        and a probability check. If the user has opted into advertising and a random check passes,
-        it returns the advertising text. Otherwise, it returns randomly generated text.
+        This method decides whether to use advertising text, custom text, or random text based
+        on user preferences. If advertising is enabled, it has a 50% chance of being used.
 
         Returns:
-            str: Either the advertising text or a randomly generated string.
+            str: The text to use for replacement.
         """
         if self.preferences.advertise_ereddicator and random.random() < 0.5:
             return self.ad_text
+        if self.preferences.custom_replacement_text:
+            return self.preferences.custom_replacement_text
         return self.generate_random_text()
 
     def get_item_info(self, item: Union[praw.models.Comment, praw.models.Submission], item_type: str) -> str:
@@ -109,9 +110,14 @@ class RedditContentRemover:
             replacement_text = self.get_replacement_text()
             for attempt in range(max_retries):
                 try:
+                    text_type = (
+                        "custom" if replacement_text == self.preferences.custom_replacement_text
+                        else "advertising" if replacement_text == self.ad_text
+                        else "random"
+                    )
                     print(
                         f"Edit {i+1}/{edit_count}: Editing {item_type[:-1]} '{item_info}' "
-                        f"with {'advertising' if replacement_text == self.ad_text else 'random'} text."
+                        f"with {text_type} text."
                     )
                     item.edit(replacement_text)
                     break
@@ -387,6 +393,10 @@ class RedditContentRemover:
                     comments = self.fetch_items(getattr(redditor.comments, sort_type), sort_type)
                     if self.preferences.comment_karma_threshold is not None:
                         comments = [c for c in comments if c.score < self.preferences.comment_karma_threshold]
+                    if self.preferences.preserve_gilded:
+                        comments = [c for c in comments if not c.gilded]
+                    if self.preferences.preserve_distinguished:
+                        comments = [c for c in comments if not c.distinguished]
                     items["comments"].update(comments)
                     print(f"Total unique comments found so far: {len(items['comments'])}")
 
@@ -395,6 +405,10 @@ class RedditContentRemover:
                     posts = self.fetch_items(getattr(redditor.submissions, sort_type), sort_type)
                     if self.preferences.post_karma_threshold is not None:
                         posts = [p for p in posts if p.score < self.preferences.post_karma_threshold]
+                    if self.preferences.preserve_gilded:
+                        posts = [p for p in posts if not p.gilded]
+                    if self.preferences.preserve_distinguished:
+                        posts = [p for p in posts if not p.distinguished]
                     items["posts"].update(posts)
                     print(f"Total unique posts found so far: {len(items['posts'])}")
 
