@@ -5,6 +5,7 @@ from tkcalendar import DateEntry
 from datetime import datetime
 from modules.user_preferences import UserPreferences
 
+
 class CredentialsInputGUI:
     """
     A GUI class for inputting Reddit API credentials.
@@ -50,7 +51,7 @@ class CredentialsInputGUI:
         main_frame = tk.Frame(self.master, bg="#2b2b2b")
         main_frame.pack(padx=10, pady=10)
 
-        fields = ["Client ID", "Client Secret", "Username", "Password"]
+        fields = ["Client ID", "Client Secret", "Username", "Password", "Two Factor Code"]
 
         for i, field in enumerate(fields):
             label = tk.Label(main_frame, text=field + ":", bg="#2b2b2b", fg="#ffffff")
@@ -66,7 +67,10 @@ class CredentialsInputGUI:
                                                   bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b")
                 show_password_cb.grid(row=i, column=2, padx=(5, 0))
 
-            self.credential_entries[field] = entry
+            if field == "Two Factor Code":
+                entry.insert(0, "Only change me if you use 2FA")
+
+            self.credential_entries[field.lower()] = entry
 
         submit_button = tk.Button(main_frame, text="Submit", command=self.submit, bg="#ffffff", fg="#000000")
         submit_button.grid(row=len(fields), column=0, columnspan=3, pady=(10, 0))
@@ -89,10 +93,12 @@ class CredentialsInputGUI:
         credentials = {}
         for field, entry in self.credential_entries.items():
             value = entry.get().strip()
-            if not value:
+            if not value and field != "two factor code":
                 messagebox.showerror("Error", f"{field} cannot be empty")
                 return
-            credentials[field.lower()] = value
+            if field == "two factor code" and value.lower() == "only change me if you use 2fa" or value == "":
+                continue
+            credentials[field] = value
 
         self.submitted_credentials = credentials
         self.master.quit()
@@ -103,7 +109,8 @@ class CredentialsInputGUI:
 
         Returns:
             Dict[str, str]: A dictionary containing the user's credentials with keys
-                            'client id', 'client secret', 'username', and 'password'.
+                            'client id', 'client secret', 'username', 'password',
+                            and 'two factor code'.
         """
         self.master.mainloop()
         return self.submitted_credentials
