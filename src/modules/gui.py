@@ -96,7 +96,7 @@ class CredentialsInputGUI:
             if not value and field != "two factor code":
                 messagebox.showerror("Error", f"{field} cannot be empty")
                 return
-            if field == "two factor code" and value.lower() == "only change me if you use 2fa" or value == "":
+            if field == "two factor code" and (value.lower() == "only change me if you use 2fa" or value == ""):
                 continue
             credentials[field] = value
 
