@@ -40,11 +40,8 @@ If you don't want to install Python, you can use the `.exe` version of the scrip
 3. Extract the contents of the `.zip` file to a folder.
 4. Run the `ereddicator.exe` file by double-clicking it. You may see `Windows protected your PC`. Just click on `More Info` and then click `Run anyway`. 
 5. A GUI window will open. Enter your Reddit API credentials when prompted.
-6. In the main window, configure your preferences:
-   - Select which types of content to delete
-   - Set karma thresholds for comments and posts (use "*" to delete all)
-   - Choose whether to enable the Ereddicator advertisement option
-     (When enabled, there's a 50% chance for each comment/post to be replaced with an ad instead of random text before deletion)
+   * If you use Two-Factor Authentication, enter your 2FA code in the "Two Factor Code" field. If you don't use 2FA, leave this field as is.
+6. After you successfully authenticate, a new window opens. In this window, you can configure your preferences.
 7. Click "Start Content Removal" to begin the process.
 
 ## Instructions (for Python Users)
@@ -66,13 +63,16 @@ If you don't want to install Python, you can use the `.exe` version of the scrip
 1. Obtain a `client_id` and `client_secret` as described in the Windows instructions above.
 2. Create a file named `reddit_credentials.ini` in the same directory as the script.
 3. Add your Reddit API credentials to the file in the following format:
-    ```
-    [reddit]
-    client_id = YOUR_CLIENT_ID
-    client_secret = YOUR_CLIENT_SECRET
-    username = YOUR_USERNAME
-    password = YOUR_PASSWORD
-    ```
+   ```
+   [reddit]
+   client_id = YOUR_CLIENT_ID
+   client_secret = YOUR_CLIENT_SECRET
+   username = YOUR_USERNAME
+   password = YOUR_PASSWORD
+   # Leave as None if you don't use two-factor authentication
+   two_factor_code = None
+   ```
+   If you use 2FA, replace None with your 2FA code.
 4. Navigate to the `src` directory.
 5. Run the script using Python: `python main.py`.
 6. Follow the on-screen instructions in the GUI to configure your preferences and start the content removal process.

@@ -31,6 +31,7 @@ class RedditAuth:
         self.client_secret = None
         self.username = None
         self.password = None
+        self.two_factor_code = None
 
     def _read_credentials(self) -> None:
         """
@@ -49,7 +50,8 @@ class RedditAuth:
         Prompt the user to input Reddit API credentials using a graphical user interface.
 
         This method creates a Tkinter window with input fields for the client ID, client secret,
-        username, and password. It uses the CredentialsInputGUI class to manage the input process.
+        username, password, and 2FA code (optional). It uses the CredentialsInputGUI class
+        to manage the input process.
         """
         root = tk.Tk()
         gui = CredentialsInputGUI(root)
@@ -60,6 +62,7 @@ class RedditAuth:
         self.client_secret = credentials["client secret"]
         self.username = credentials["username"]
         self.password = credentials["password"]
+        self.two_factor_code = credentials.get("two factor code", "None")
 
     def _read_credentials_from_file(self) -> None:
         """
@@ -81,6 +84,7 @@ class RedditAuth:
         self.client_secret = config["reddit"]["client_secret"]
         self.username = config["reddit"]["username"]
         self.password = config["reddit"]["password"]
+        self.two_factor_code = config["reddit"].get("two_factor_code", "None")
 
     def get_reddit_instance(self) -> praw.Reddit:
         """
@@ -104,11 +108,20 @@ class RedditAuth:
             
             print("Retrieving Reddit Authentication instance...")
 
+            # Clean up the two-factor code if it's present.
+            if self.two_factor_code:
+                self.two_factor_code = self.two_factor_code.replace(" ", "")
+
+            # Combine password and 2FA code if it's present.
+            password = (f"{self.password}:{self.two_factor_code}"
+                        if self.two_factor_code and self.two_factor_code.lower() != "none"
+                        else self.password)
+
             reddit = praw.Reddit(
                 client_id=self.client_id,
                 client_secret=self.client_secret,
                 username=self.username,
-                password=self.password,
+                password=password,
                 user_agent=self.user_agent
             )
             reddit.user.me()  # Won't throw exceptions if authentication succeeded.
@@ -117,8 +130,10 @@ class RedditAuth:
         except FileNotFoundError:
             print(f"Please create a file named '{self.file_path}' in the same directory "
                   "as main.py with the following format:\n"
-                  "[reddit]\nclient_id = YOUR_CLIENT_ID\nclient_secret = YOUR_CLIENT_SECRET\n"
-                  "username = YOUR_USERNAME\npassword = YOUR_PASSWORD")
+                  "[reddit]\nclient_id = YOUR-CLIENT-ID\nclient_secret = YOUR-CLIENT-SECRET\n"
+                  "username = YOUR-USERNAME\npassword = YOUR-PASSWORD\n"
+                  "# Leave as None if you don't use two-factor authentication\n"
+                  "two_factor_code = None")
             sys.exit(1)
         except (OAuthException, ResponseException) as e:
             print("Failed to authenticate with Reddit. Please check your credentials.")
