@@ -78,4 +78,6 @@ If you don't want to install Python, you can use the `.exe` version of the scrip
 6. Follow the on-screen instructions in the GUI to configure your preferences and start the content removal process.
 
 ## Support Me
-Donations to my [patreon](https://www.patreon.com/lolwhatyesme) will help with the development of this project.
+Donations will help me with the development of this project.
+One-off donation: https://ko-fi.com/lolwhatyesme
+Patreon: https://www.patreon.com/lolwhatyesme
