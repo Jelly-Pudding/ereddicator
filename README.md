@@ -79,5 +79,7 @@ If you don't want to install Python, you can use the `.exe` version of the scrip
 
 ## Support Me
 Donations will help me with the development of this project.
+
 One-off donation: https://ko-fi.com/lolwhatyesme
+
 Patreon: https://www.patreon.com/lolwhatyesme
