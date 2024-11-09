@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
 from typing import Dict, Callable
 from tkcalendar import DateEntry
 from datetime import datetime
@@ -168,8 +168,16 @@ class RedditContentRemoverGUI:
             entry.insert(0, "You can leave this blank.")
             entry.config(fg="grey")
 
+    def select_directory(self) -> None:
+        """Handle directory selection for Reddit data export."""
+        directory = filedialog.askdirectory(title="Select Reddit Data Export Directory")
+        if directory:
+            self.export_directory_entry.delete(0, tk.END)  # Clear the entry first
+            self.export_directory_entry.insert(0, directory)
+            self.export_directory_entry.config(fg="white")
+
     def create_widgets(self) -> None:
-        main_frame = tk.Frame(self.master, bg='#2b2b2b')
+        main_frame = tk.Frame(self.master, bg="#2b2b2b")
         main_frame.pack(padx=20, pady=20, fill=tk.BOTH, expand=True)
 
         self.content_vars = {}
@@ -400,6 +408,41 @@ class RedditContentRemoverGUI:
         date_tooltip_text = "Set date range for content processing. Leave blank to include all dates."
         self.create_tooltip(date_question_button, date_tooltip_text)
 
+        # Handle Reddit generated export folder
+        export_frame = tk.Frame(main_frame, bg="#2b2b2b")
+        export_frame.pack(fill="x", pady=10)
+
+        export_label = tk.Label(export_frame, text="Reddit Export Directory:", 
+                              bg="#2b2b2b", fg="#ffffff", font=("Arial", 13))
+        export_label.pack(side="left", padx=(0, 10))
+
+        self.export_directory_entry = tk.Entry(export_frame, bg="#3c3c3c", 
+                                             fg="grey", font=("Arial", 12), width=30)
+        self.export_directory_entry.pack(side="left")
+        self.export_directory_entry.insert(0, "Optional: Select folder containing Reddit data export")
+        self.export_directory_entry.config(fg='grey')
+
+        browse_button = tk.Button(export_frame, text="Browse", 
+                                command=self.select_directory,
+                                bg="#ffffff", fg="#000000")
+        browse_button.pack(side="left", padx=(5, 5))
+
+        export_question_button = tk.Button(export_frame, text="?", 
+                                         font=("Arial", 10), bg="#3c3c3c", fg="#ffffff")
+        export_question_button.pack(side="left", padx=(5, 0))
+
+        export_tooltip_text = (
+            "This is optional. Handles old content (>7 years old) that Reddit's API can't access."
+            " Go to reddit.com/settings/data-request. Wait for Reddit's message,"
+            " and download and extract the ZIP file. Select the extracted folder here."
+        )
+        self.create_tooltip(export_question_button, export_tooltip_text)
+
+        self.export_directory_entry.bind("<FocusIn>", 
+            lambda event: self.on_entry_click(event, self.export_directory_entry))
+        self.export_directory_entry.bind("<FocusOut>", 
+            lambda event: self.on_focus_out(event, self.export_directory_entry))
+
         # Removal button
         self.start_button = tk.Button(main_frame, text="Start Content Removal", command=self.start_removal,
                                     bg="#ffffff", fg="#000000", font=("Arial", 14))
@@ -534,6 +577,13 @@ class RedditContentRemoverGUI:
         # Get custom replacement text
         custom_text = self.custom_text_entry.get()
         self.preferences.custom_replacement_text = custom_text if custom_text != "You can leave this blank." else None
+
+        # Handle export from Reddit option
+        export_dir = self.export_directory_entry.get()
+        if export_dir and export_dir != "Optional: Select folder containing Reddit data export":
+            self.preferences.reddit_export_directory = export_dir
+        else:
+            self.preferences.reddit_export_directory = None
 
         self.master.destroy()
         self.start_removal_callback(self.preferences)

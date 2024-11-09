@@ -25,6 +25,21 @@ This Python script allows you to delete all your Reddit comments, posts, saved i
 
 Note: As an added measure against the original content being read, the content replacement process (with either random text or an advertisement) occurs three times immediately before the final edit or deletion.
 
+## A Note About Very Old Comments
+Reddit's API is limited and sometimes does not retrieve all comments and posts. If you want to ensure everything is wiped, you'll need to make a Reddit data export request:
+
+1. Go to https://www.reddit.com/settings/data-request
+2. Fill in the form:
+   * Enter your username
+   * Select the appropriate request type based on your location:
+      * If you're in the EU/UK: Select "General Data Protection Regulation (GDPR)
+      * If you're in California: Select "California Consumer Privacy Act (CCPA)"
+      * For all other locations: Select "Other"
+   * For date range, select "I want data from my full time at Reddit"
+3. Submit the request.
+
+Reddit will process your request and send a message to your Reddit inbox (it is very fast usually and takes minutes, but it can take 1-2 days). The message will contain a temporary download link (valid for 7 days). Extract the contents of the `.zip` file to a folder. You will then be able to select this folder in the GUI (looks for the `Reddit Export Directory` field).
+
 ## Instructions (for Windows Users)
 
 If you don't want to install Python, you can use the `.exe` version of the script:
