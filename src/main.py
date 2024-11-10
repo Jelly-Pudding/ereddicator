@@ -42,6 +42,9 @@ def run_content_remover(preferences: UserPreferences, reddit: praw.Reddit, auth:
         # Set a timer to force exit if graceful shutdown doesn't work
         def force_exit():
             print("\nForcing exit...")
+            if auth.is_exe:
+                print("Press Enter to exit...")
+                input()
             os._exit(1)
 
         timer = threading.Timer(5.0, force_exit)
