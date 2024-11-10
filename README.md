@@ -11,7 +11,8 @@ This Python script allows you to delete all your Reddit comments, posts, saved i
   - Upvoted content
   - Downvoted content
   - Hidden posts
-- **Edit-Only Mode**: For comments and posts, you can choose to only edit the content without deleting it. This may be desirable as Reddit is capable of restoring deleted comments. It may also be desirable as web crawlers that picked up your original content may overwrite it with the new text.
+- **Reddit Data Export Support**: You can process content from Reddit's data export. Although it requires more effort on your part, it is ***highly recommended*** you take advantage of this feature as it ensures all of your content is processed. See [Reddit Data Export Request](#reddit-data-export-request) for instructions.
+- **Edit-Only Mode**: For comments and posts, you can choose to only edit the content without deleting it. This is recommended as Reddit is capable of restoring your content. It is also recommended as web crawlers that picked up your original content may overwrite it with the new text.
 - **Karma Threshold**: You can set karma thresholds for comments and posts. Content with karma above or equal to the threshold will be preserved.
 - **Preserve Gilded Content**: Option to preserve comments and posts that have been gilded (received Reddit gold).
 - **Preserve Distinguished Content**: Option to preserve comments and posts that have been distinguished by moderators.
@@ -25,24 +26,41 @@ This Python script allows you to delete all your Reddit comments, posts, saved i
 
 Note: As an added measure against the original content being read, the content replacement process (with either random text or an advertisement) occurs three times immediately before the final edit or deletion.
 
+## Reddit Data Export Request
+Reddit's API is limited and sometimes does not retrieve all comments and posts. If you want to ensure you get everything, you will need to make a Reddit data export request:
+
+1. Go to https://www.reddit.com/settings/data-request
+2. Fill in the form:
+   * Select the appropriate request type based on your location:
+      * If you're in the EU/UK: Select "General Data Protection Regulation (GDPR)"
+      * If you're in California: Select "California Consumer Privacy Act (CCPA)"
+      * For all other locations: Select "Other"
+   * For date range, select "I want data from my full time at Reddit"
+3. Submit the request.
+
+Reddit will process your request and send a message to your Reddit inbox (it is very fast usually and takes minutes, but it can take 1-2 days). The message will contain a download link. Extract the contents of the `.zip` file to a folder. You will then be able to select this folder when [using Ereddicator](#instructions-for-windows-users) (look for the `Reddit Export Directory` option).
+
 ## Instructions (for Windows Users)
 
 If you don't want to install Python, you can use the `.exe` version of the script:
 
-1. Obtain a `client_id` and `client_secret` and save these in a notepad file:
+1. **Optional First Step** - Make a Reddit data request ([see here for instructions](#reddit-data-export-request)). While Ereddicator works without this, using Reddit's data export ensures all of your content is processed.
+2. Obtain a `client_id` and `client_secret` and save these in a notepad file:
    - Go to https://www.reddit.com/prefs/apps
-   - Click "Create App" or "Create Another App"
-   - Choose "script" for personal use
-   - Fill in any name and for the redirect uri put http://localhost:8080
-   - After creation, the client_id is the string under "personal use script"
-   - The client_secret is labeled "secret"
-2. Download the latest `.zip` file from the [Releases](https://github.com/Jelly-Pudding/ereddicator/releases/) page.
-3. Extract the contents of the `.zip` file to a folder.
-4. Run the `ereddicator.exe` file by double-clicking it. You may see `Windows protected your PC`. Just click on `More Info` and then click `Run anyway`. 
-5. A GUI window will open. Enter your Reddit API credentials when prompted.
+   - Click "Create App" or "Create Another App".
+   - You can name it anything. It does not matter.
+   - Choose "script" for personal use.
+   - For the "redirect uri", put http://localhost:8080
+   - After creation, the client_id is the string under "personal use script". For example, it may look like this: "AE9-zURLEvI1pze_rqH4Iw".
+   - The client_secret is what appears next to "secret". It will look like this: "ZeqnEO_F21BrzzgOpb_es4kOfbhTww"
+3. Download the latest `.zip` file from the [Releases](https://github.com/Jelly-Pudding/ereddicator/releases/) page.
+4. Extract the contents of the `.zip` file to a folder.
+5. Run the `ereddicator.exe` file by double-clicking it. You may see `Windows protected your PC`. Just click on `More Info` and then click `Run anyway`. 
+6. A terminal will open. Do not close it and make sure it stays open when you use Ereddicator.
+7. A GUI window will also open. Enter your Reddit API credentials into it.
    * If you use Two-Factor Authentication, enter your 2FA code in the "Two Factor Code" field. If you don't use 2FA, leave this field as is.
-6. After you successfully authenticate, a new window opens. In this window, you can configure your preferences.
-7. Click "Start Content Removal" to begin the process.
+7. After you successfully authenticate, a new window opens. In this window, you can configure your preferences.
+8. Click "Start Content Removal" to begin the process.
 
 ## Instructions (for Python Users)
 
@@ -60,9 +78,17 @@ If you don't want to install Python, you can use the `.exe` version of the scrip
 
 ### Instructions
 
-1. Obtain a `client_id` and `client_secret` as described in the Windows instructions above.
-2. Create a file named `reddit_credentials.ini` in the same directory as the script.
-3. Add your Reddit API credentials to the file in the following format:
+1. **Optional First Step** - Make a Reddit data request ([see here for instructions](#reddit-data-export-request)). While Ereddicator works without this, using Reddit's data export ensures all of your content is processed.
+2. Obtain a `client_id` and `client_secret` and save these in a notepad file:
+   - Go to https://www.reddit.com/prefs/apps
+   - Click "Create App" or "Create Another App".
+   - You can name it anything. It does not matter.
+   - Choose "script" for personal use.
+   - For the "redirect uri", put http://localhost:8080
+   - After creation, the client_id is the string under "personal use script". For example, it may look like this: "AE9-zURLEvI1pze_rqH4Iw".
+   - The client_secret is what appears next to "secret". It will look like this: "ZeqnEO_F21BrzzgOpb_es4kOfbhTww"
+3. Create a file named `reddit_credentials.ini` in the same directory as the script.
+4. Add your Reddit API credentials to the file in the following format:
    ```
    [reddit]
    client_id = YOUR_CLIENT_ID
@@ -73,9 +99,9 @@ If you don't want to install Python, you can use the `.exe` version of the scrip
    two_factor_code = None
    ```
    If you use 2FA, replace None with your 2FA code.
-4. Navigate to the `src` directory.
-5. Run the script using Python: `python main.py`.
-6. Follow the on-screen instructions in the GUI to configure your preferences and start the content removal process.
+5. Navigate to the `src` directory.
+6. Run the script using Python: `python main.py`.
+7. Follow the on-screen instructions in the GUI to configure your preferences and start the content removal process.
 
 ## Support Me
 Donations will help me with the development of this project.
