@@ -11,7 +11,7 @@ This Python script allows you to delete all your Reddit comments, posts, saved i
   - Upvoted content
   - Downvoted content
   - Hidden posts
-- **Reddit Data Export Support**: You can process content from Reddit's data export. Although it requires more effort on your part, it is ***highly recommended*** you take advantage of this feature as it ensures all of your content is processed. See [Processing Reddit Data Exports](#processing-reddit-data-exports) for instructions.
+- **Reddit Data Export Support**: You can process content from Reddit's data export. Although it requires more effort on your part, it is ***highly recommended*** you take advantage of this feature as it ensures all of your content is processed. See [Reddit Data Export Request](#reddit-data-export-request) for instructions.
 - **Edit-Only Mode**: For comments and posts, you can choose to only edit the content without deleting it. This is recommended as Reddit is capable of restoring your content. It is also recommended as web crawlers that picked up your original content may overwrite it with the new text.
 - **Karma Threshold**: You can set karma thresholds for comments and posts. Content with karma above or equal to the threshold will be preserved.
 - **Preserve Gilded Content**: Option to preserve comments and posts that have been gilded (received Reddit gold).
@@ -26,7 +26,7 @@ This Python script allows you to delete all your Reddit comments, posts, saved i
 
 Note: As an added measure against the original content being read, the content replacement process (with either random text or an advertisement) occurs three times immediately before the final edit or deletion.
 
-## Processing Reddit Data Exports
+## Reddit Data Export Request
 Reddit's API is limited and sometimes does not retrieve all comments and posts. If you want to ensure you get everything, you will need to make a Reddit data export request:
 
 1. Go to https://www.reddit.com/settings/data-request
@@ -44,7 +44,7 @@ Reddit will process your request and send a message to your Reddit inbox (it is 
 
 If you don't want to install Python, you can use the `.exe` version of the script:
 
-1. **Optional First Step** - Make a Reddit data request ([see here for instructions](#processing-reddit-data-exports)). While Ereddicator works without this, using Reddit's data export ensures all of your content is processed.
+1. **Optional First Step** - Make a Reddit data request ([see here for instructions](#reddit-data-export-request)). While Ereddicator works without this, using Reddit's data export ensures all of your content is processed.
 2. Obtain a `client_id` and `client_secret` and save these in a notepad file:
    - Go to https://www.reddit.com/prefs/apps
    - Click "Create App" or "Create Another App".
@@ -78,7 +78,7 @@ If you don't want to install Python, you can use the `.exe` version of the scrip
 
 ### Instructions
 
-1. **Optional First Step** - Make a Reddit data request ([see here for instructions](#processing-reddit-data-exports)). While Ereddicator works without this, using Reddit's data export ensures all of your content is processed.
+1. **Optional First Step** - Make a Reddit data request ([see here for instructions](#reddit-data-export-request)). While Ereddicator works without this, using Reddit's data export ensures all of your content is processed.
 2. Obtain a `client_id` and `client_secret` and save these in a notepad file:
    - Go to https://www.reddit.com/prefs/apps
    - Click "Create App" or "Create Another App".
