@@ -3,7 +3,7 @@ import string
 import time
 import os
 import csv
-from typing import Dict, List, Union, Callable, Tuple, Optional
+from typing import Dict, List, Set, Union, Callable, Tuple, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 import praw
@@ -73,40 +73,85 @@ class RedditContentRemover:
             return self.preferences.custom_replacement_text
         return self.generate_random_text()
 
-    def get_item_info(self, item: Union[praw.models.Comment, praw.models.Submission], item_type: str) -> str:
+    def get_item_info(
+        self, item: Union[praw.models.Comment, praw.models.Submission],
+        item_type: str, max_retries: int = 5
+    ) -> Tuple[str, Optional[Union[praw.models.Comment, praw.models.Submission]]]:
         """
-        Get a string representation of the item for logging purposes.
+        Get a string representation of the item for logging purposes and return the refreshed item if successful.
 
         Args:
             item (Union[praw.models.Comment, praw.models.Submission]): The Reddit item.
             item_type (str): The type of the item.
+            max_retries (int): Maximum number of retry attempts for rate limit handling.
 
         Returns:
-            str: A string representation of the item. Returns "FORBIDDEN" if the item cannot be accessed
-            (which can happen if the subreddit is private or banned).
+            Tuple[str, Optional[Union[praw.models.Comment, praw.models.Submission]]]: 
+                A tuple containing:
+                - A string representation of the item (includes error info if something went wrong)
+                - The refreshed item if successful, None if the item couldn't be refreshed
         """
-        try:
-            # Force fetch the data first to trigger any potential 403s. This must be done as otherwise
-            # 403s are impossible to catch.
-            _ = item._fetch()
-            
-            if isinstance(item, praw.models.Comment):
+        for attempt in range(max_retries):
+            try:
+                # Force fetch the data first to trigger any potential 403s.
+                # Note: _fetch() updates the item in place.
+                _ = item._fetch()
+
+                if isinstance(item, praw.models.Comment):
+                    return (
+                        f"Comment '{item.body[:25]}"
+                        f"{'...' if len(item.body) > 25 else ''}' "
+                        f"in r/{item.subreddit.display_name}",
+                        item
+                    )
+                if isinstance(item, praw.models.Submission):
+                    return (
+                        f"Post '{item.title[:25]}"
+                        f"{'...' if len(item.title) > 25 else ''}' "
+                        f"in r/{item.subreddit.display_name}",
+                        item
+                    )
                 return (
-                    f"Comment '{item.body[:25]}"
-                    f"{'...' if len(item.body) > 25 else ''}' "
-                    f"in r/{item.subreddit.display_name}"
+                    f"{item_type.capitalize()} item (ID: {item.id}) of type {type(item).__name__}",
+                    item
                 )
-            if isinstance(item, praw.models.Submission):
+            except Forbidden:
+                return(
+                    f"Access Forbidden (403) whilst accessing {item_type[:-1]} properties. "
+                    f"ID: {getattr(item, 'id', 'N/A')}. This is likely because the item is in a subreddit "
+                    f"which is private or banned... Skipping item.", None
+                )
+            except AttributeError:
+                return f"{item_type.capitalize()} item (ID: {getattr(item, 'id', 'N/A')}) - Attribute error... Skipping item", None
+            except ResponseException as e:
+                return f"Encountered an HTTP error whilst getting item info: {e}... Skipping item", None
+            except praw.exceptions.RedditAPIException as e:
+                if attempt < max_retries - 1:
+                    sleep_time = (2 ** attempt) + (random.randint(0, 1000) / 1000)
+                    print(
+                        f"Encountered a Reddit API Exception whilst getting item info. "
+                        f"Probably hit the rate limit: {e}. "
+                        f"Retrying in {sleep_time:.2f} seconds... "
+                        f"(Attempt {attempt + 1}/{max_retries})"
+                    )
+                    time.sleep(sleep_time)
+                else:
+                    return (
+                        f"API error has persisted after {max_retries} attempts when trying to access "
+                        f"{item_type.capitalize()} (ID: {getattr(item, 'id', 'N/A')})... Skipping item.",
+                        None
+                    )
+            except Exception as e:
+                if "no data returned" in str(e).lower():
+                    return(
+                        f"Cannot access the {item_type[:-1]} item with id {item.id} as it is "
+                        "likely in a subreddit that is either private or banned... Skipping item", None
+                    )
                 return (
-                    f"Post '{item.title[:25]}"
-                    f"{'...' if len(item.title) > 25 else ''}' "
-                    f"in r/{item.subreddit.display_name}"
-                )
-            return f"{item_type.capitalize()} item (ID: {item.id}) of type {type(item).__name__}"
-        except Forbidden:
-            return "FORBIDDEN"
-        except AttributeError:
-            return f"{item_type.capitalize()} item (ID: {getattr(item, 'id', 'N/A')})"
+                   f"Unexpected error occurred when trying to access the "
+                   f"{item_type.capitalize()} (ID: {getattr(item, 'id', 'N/A')}): {str(e)}... Skipping item.",
+                   None
+               )
 
     def edit_item_multiple_times(self, item: Union[praw.models.Comment, praw.models.Submission],
                                  item_type: str, item_info: str, edit_count: int = 3, max_retries: int = 5) -> bool:
@@ -178,30 +223,14 @@ class RedditContentRemover:
         """
         deleted_count = 0
         edited_count = 0
-        item_info = f"DEFAULT - {item_type.capitalize()} item (ID: {getattr(item, 'id', 'N/A')})"
 
-        try:
-            item_info = self.get_item_info(item, item_type)
-            if item_info == "FORBIDDEN":
-                print(
-                    f"Access Forbidden (403) while accessing {item_type[:-1]} properties. "
-                    f"ID: {getattr(item, 'id', 'N/A')}. This is likely because the item is in a subreddit "
-                    f"which is private or banned. Skipping."
-                )
-                return (deleted_count, edited_count)
-        except Exception as e:
-            if "no data returned" in str(e).lower():
-                print(
-                    f"Skipping {item_type[:-1]} with id {item.id} - can't access the item as it is "
-                    "likely in a subreddit that is either private or banned."
-                )
-                return (deleted_count, edited_count)
-            print(f"Error accessing item info: {str(e)}. Skipping item.")
+        item_info, refreshed_item = self.get_item_info(item, item_type, max_retries)
+
+        # Skip if we can't get the refreshed item.
+        if refreshed_item is None:
             return (deleted_count, edited_count)
-        
-        if item_info == f"DEFAULT - {item_type.capitalize()} item (ID: {getattr(item, 'id', 'N/A')})":
-            print(f"Unable to get item info for {item_type} (ID: {getattr(item, 'id', 'N/A')}) - item properties may be inaccessible. Skipping.")
-            return (deleted_count, edited_count)
+
+        item = refreshed_item
 
         # Skip already deleted or removed content...
         if (
@@ -415,7 +444,9 @@ class RedditContentRemover:
 
         return total_deleted, total_edited
 
-    def get_content_from_csv(self, filename: str, karma_threshold: Optional[int] = None) -> set:
+    def get_content_from_csv(
+        self, filename: str, karma_threshold: Optional[int] = None
+    ) -> Set[Union[praw.models.Comment, praw.models.Submission]]:
         """
         Read content IDs from a Reddit data export CSV file and return filtered Reddit objects.
 
@@ -425,7 +456,8 @@ class RedditContentRemover:
                 Defaults to None.
 
         Returns:
-            set: Set of filtered Reddit Comment or Submission objects loaded from the CSV.
+            Set[Union[praw.models.Comment, praw.models.Submission]]: 
+                A set of filtered Reddit Comment or Submission objects loaded from the CSV.
         """
         if filename not in ["comments.csv", "posts.csv"]:
             raise ValueError("Filename must be 'comments.csv' or 'posts.csv'")
