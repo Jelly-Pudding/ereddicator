@@ -178,6 +178,7 @@ class RedditContentRemover:
         """
         deleted_count = 0
         edited_count = 0
+        item_info = f"DEFAULT - {item_type.capitalize()} item (ID: {getattr(item, 'id', 'N/A')})"
 
         try:
             item_info = self.get_item_info(item, item_type)
@@ -195,6 +196,12 @@ class RedditContentRemover:
                     "likely in a subreddit that is either private or banned."
                 )
                 return (deleted_count, edited_count)
+            print(f"Error accessing item info: {str(e)}. Skipping item.")
+            return (deleted_count, edited_count)
+        
+        if item_info == f"DEFAULT - {item_type.capitalize()} item (ID: {getattr(item, 'id', 'N/A')})":
+            print(f"Unable to get item info for {item_type} (ID: {getattr(item, 'id', 'N/A')}) - item properties may be inaccessible. Skipping.")
+            return (deleted_count, edited_count)
 
         # Skip already deleted or removed content...
         if (
