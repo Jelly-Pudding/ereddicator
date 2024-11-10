@@ -193,8 +193,8 @@ class RedditContentRemoverGUI:
         right_column.pack(side="right", fill="y", expand=True)
 
         # Comments
-        self.content_vars["comments"] = tk.BooleanVar(value=True)
-        self.only_edit_vars["comments"] = tk.BooleanVar(value=False)
+        self.content_vars["comments"] = tk.BooleanVar(value=False)
+        self.only_edit_vars["comments"] = tk.BooleanVar(value=True)
         tk.Checkbutton(left_column, text="Delete comments", variable=self.content_vars["comments"],
                     bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b", activebackground="#2b2b2b",
                     activeforeground="#ffffff", font=("Arial", 13),
@@ -205,8 +205,8 @@ class RedditContentRemoverGUI:
                     command=lambda: self.update_checkboxes("comments", edit=True)).pack(anchor="w", pady=5)
 
         # Posts
-        self.content_vars["posts"] = tk.BooleanVar(value=True)
-        self.only_edit_vars["posts"] = tk.BooleanVar(value=False)
+        self.content_vars["posts"] = tk.BooleanVar(value=False)
+        self.only_edit_vars["posts"] = tk.BooleanVar(value=True)
         tk.Checkbutton(left_column, text="Delete posts", variable=self.content_vars["posts"],
                     bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b", activebackground="#2b2b2b",
                     activeforeground="#ffffff", font=("Arial", 13),

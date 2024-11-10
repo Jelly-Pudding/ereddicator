@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 import praw
 from prawcore import ResponseException
+from prawcore.exceptions import Forbidden
 from modules.user_preferences import UserPreferences
 
 class RedditContentRemover:
@@ -81,9 +82,14 @@ class RedditContentRemover:
             item_type (str): The type of the item.
 
         Returns:
-            str: A string representation of the item.
+            str: A string representation of the item. Returns "FORBIDDEN" if the item cannot be accessed
+            (which can happen if the subreddit is private or banned).
         """
         try:
+            # Force fetch the data first to trigger any potential 403s. This must be done as otherwise
+            # 403s are impossible to catch.
+            _ = item._fetch()
+            
             if isinstance(item, praw.models.Comment):
                 return (
                     f"Comment '{item.body[:25]}"
@@ -96,16 +102,14 @@ class RedditContentRemover:
                     f"{'...' if len(item.title) > 25 else ''}' "
                     f"in r/{item.subreddit.display_name}"
                 )
-            # Just in case the item is not a comment or post.
             return f"{item_type.capitalize()} item (ID: {item.id}) of type {type(item).__name__}"
+        except Forbidden:
+            return "FORBIDDEN"
         except AttributeError:
             return f"{item_type.capitalize()} item (ID: {getattr(item, 'id', 'N/A')})"
-        except Exception:
-            print(f"Access Forbidden (403). Moving on...         get_item_info                       item (ID: {getattr(item, 'id', 'N/A')})")
-            raise
 
     def edit_item_multiple_times(self, item: Union[praw.models.Comment, praw.models.Submission],
-                                item_type: str, item_info: str, edit_count: int = 3, max_retries: int = 5) -> None:
+                                 item_type: str, item_info: str, edit_count: int = 3, max_retries: int = 5) -> bool:
         """
         Edit a Reddit item (comment or post) multiple times before deletion, with retry mechanism.
 
@@ -115,7 +119,11 @@ class RedditContentRemover:
             item_info (str): Pre-computed string representation of the item for logging.
             edit_count (int): The number of times to edit the item. Defaults to 3.
             max_retries (int): Maximum number of retry attempts for each edit. Defaults to 5.
+
+        Returns:
+            bool: True if at least one edit was successful, False otherwise.
         """
+        successfully_edited = False
         for i in range(edit_count):
             if self.interrupt_flag:
                 break
@@ -132,11 +140,12 @@ class RedditContentRemover:
                         f"with {text_type} text."
                     )
                     item.edit(replacement_text)
+                    successfully_edited = True
                     break
                 except praw.exceptions.RedditAPIException as e:
                     if "Your post isn't accessible. Double-check it and try again." in str(e):
                         print(f"'{item_info}' was found to be deleted. Skipping further edit attempts...")
-                        return
+                        return False
                     if attempt < max_retries - 1:
                         sleep_time = (2 ** attempt) + (random.randint(0, 1000) / 1000)
                         print(f"Encountered a Reddit API Exception: {e}")
@@ -146,14 +155,12 @@ class RedditContentRemover:
                         )
                         for _ in range(int(sleep_time * 10)):
                             if self.interrupt_flag:
-                                return
+                                return successfully_edited
                             time.sleep(0.1)
                     else:
                         print(f"Failed to edit {item_type[:-1]} '{item_info}' after {max_retries} attempts.")
-                except Exception:
-                    print(f"Access Forbidden (403). Moving on...         editing                       item (ID: {getattr(item, 'id', 'N/A')})")
-                    raise
             time.sleep(0.8)
+        return successfully_edited
 
     def process_item(self, item: Union[praw.models.Comment, praw.models.Submission],
                     item_type: str, max_retries: int = 5) -> Tuple[int, int]:
@@ -172,20 +179,23 @@ class RedditContentRemover:
         deleted_count = 0
         edited_count = 0
 
-        print("a " + item.id)
         try:
             item_info = self.get_item_info(item, item_type)
+            if item_info == "FORBIDDEN":
+                print(
+                    f"Access Forbidden (403) while accessing {item_type[:-1]} properties. "
+                    f"ID: {getattr(item, 'id', 'N/A')}. This is likely because the item is in a subreddit "
+                    f"which is private or banned. Skipping."
+                )
+                return (deleted_count, edited_count)
         except Exception as e:
             if "no data returned" in str(e).lower():
                 print(
-                    f"Skipping {item_type[:-1]} with id {item.id} - can't access the item as "
-                    "the subreddit is likely private or banned."
+                    f"Skipping {item_type[:-1]} with id {item.id} - can't access the item as it is "
+                    "likely in a subreddit that is either private or banned."
                 )
                 return (deleted_count, edited_count)
-            print(f"Access Forbidden (403). Moving on...         get_item_info call                      item (ID: {getattr(item, 'id', 'N/A')})")
-            raise
 
-        print("b " + item.id)
         # Skip already deleted or removed content...
         if (
             item_info.startswith("Comment '[deleted]'") or item_info.startswith("Comment '[removed]'")
@@ -193,7 +203,6 @@ class RedditContentRemover:
             print(f"Skipping already deleted or removed {item_type[:-1]}: {item_info}")
             return (deleted_count, edited_count)
 
-        print("c " + item.id)
         # Skip if it's not in the date range...
         item_date = datetime.fromtimestamp(item.created_utc)
         if not self.preferences.is_within_date_range(item_date):
@@ -204,7 +213,6 @@ class RedditContentRemover:
             )
             return (deleted_count, edited_count)
 
-        print("d " + item.id)
         # Skip based on the Subreddit filtering...
         subreddit_name = item.subreddit.display_name if hasattr(item, "subreddit") else None
         if subreddit_name and not self.preferences.should_process_subreddit(subreddit_name):
@@ -235,33 +243,41 @@ class RedditContentRemover:
                     if self.preferences.only_edit_comments:
                         if self.preferences.dry_run:
                             print(f"[DRY RUN] Would edit comment: '{item_info}'")
+                            edited_count = 1
                         else:
-                            self.edit_item_multiple_times(item, item_type, item_info)
-                        edited_count = 1
+                            if self.edit_item_multiple_times(item, item_type, item_info):
+                                edited_count = 1
                     else:
                         if self.preferences.dry_run:
                             print(f"[DRY RUN] Would edit and delete comment: '{item_info}'")
+                            deleted_count = 1
                         else:
-                            self.edit_item_multiple_times(item, item_type, item_info)
-                            print(f"Deleting comment: '{item_info}'")
-                            item.delete()
-                        deleted_count = 1
+                            if self.edit_item_multiple_times(item, item_type, item_info):
+                                print(f"Deleting comment: '{item_info}'")
+                                item.delete()
+                                deleted_count = 1
+                            else:
+                                print(f"Not deleting comment due to a failure to edit it: '{item_info}'")
                 elif item_type == "posts":
                     if item.is_self:
                         if self.preferences.only_edit_posts:
                             if self.preferences.dry_run:
                                 print(f"[DRY RUN] Would edit text post: '{item_info}'")
+                                edited_count = 1
                             else:
-                                self.edit_item_multiple_times(item, item_type, item_info)
-                            edited_count = 1
+                                if self.edit_item_multiple_times(item, item_type, item_info):
+                                    edited_count = 1
                         else:
                             if self.preferences.dry_run:
                                 print(f"[DRY RUN] Would edit and delete text post: '{item_info}'")
+                                deleted_count = 1
                             else:
-                                self.edit_item_multiple_times(item, item_type, item_info)
-                                print(f"Deleting Text Post: '{item_info}'")
-                                item.delete()
-                            deleted_count = 1
+                                if self.edit_item_multiple_times(item, item_type, item_info):
+                                    print(f"Deleting Text Post: '{item_info}'")
+                                    item.delete()
+                                    deleted_count = 1
+                                else:
+                                    print(f"Not deleting text post due to a failure to edit it: '{item_info}'")
                     else:
                         print(f"It is impossible to edit content of 'Link {item_info}'.")
                         if not self.preferences.only_edit_posts:
@@ -314,9 +330,6 @@ class RedditContentRemover:
                         time.sleep(0.1)
                 else:
                     print(f"Failed to process {item_type} after {max_retries} attempts.")
-            except Exception:
-                print(f"Skipping {item_type[:-1]} '{item_info}' - Access Forbidden (403). Moving on...")
-                return (deleted_count, edited_count)
         return (deleted_count, edited_count)
 
     def process_batch(self, items: List[Union[praw.models.Comment, praw.models.Submission]],
@@ -339,7 +352,7 @@ class RedditContentRemover:
         print(f"Starting batch {batch_number} for {item_type}")
         processed_so_far = (batch_number - 1) * 50 + len(items)
 
-        with ThreadPoolExecutor(max_workers=1) as executor:
+        with ThreadPoolExecutor(max_workers=2) as executor:
             futures = [executor.submit(self.process_item, item, item_type) for item in items]
             for future in as_completed(futures):
                 if self.interrupt_flag:

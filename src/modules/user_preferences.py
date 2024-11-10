@@ -19,7 +19,7 @@ class UserPreferences:
     8. Set a date range for content processing.
     9. Enable a dry run mode for testing without making actual changes.
     10. Specify custom text for replacing content.
-    11. Process content from Reddit data export files for handling very old content.
+    11. Process content from Reddit data export files.
 
     Attributes:
         delete_comments (bool): Flag to delete comments.
@@ -42,18 +42,18 @@ class UserPreferences:
         blacklist_subreddits (List[str]): List of subreddit names to exclusively delete/edit content from.
         start_date (Optional[datetime]): The start date for content processing. Content before this date will be ignored if set.
         end_date (Optional[datetime]): The end date for content processing. Content after this date will be ignored if set.
-        reddit_export_directory (Optional[str]): Path to directory containing Reddit data export files.
-            Used for processing very old content not accessible through the API. If None, only API-based deletion is used.
+        reddit_export_directory (Optional[str]): Path to directory containing Reddit data export files. If None,
+            only API-based deletion is used.
     """
 
-    delete_comments: bool = True
-    delete_posts: bool = True
+    delete_comments: bool = False
+    delete_posts: bool = False
     delete_saved: bool = True
     delete_upvotes: bool = True
     delete_downvotes: bool = True
     delete_hidden: bool = True
-    only_edit_comments: bool = False
-    only_edit_posts: bool = False
+    only_edit_comments: bool = True
+    only_edit_posts: bool = True
     preserve_gilded: bool = False
     preserve_distinguished: bool = False
     advertise_ereddicator: bool = False
