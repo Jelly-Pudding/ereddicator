@@ -2,6 +2,8 @@ import tkinter as tk
 import time
 import signal
 import sys
+import os
+import threading
 import praw
 from modules.reddit_auth import RedditAuth
 from modules.reddit_content_remover import RedditContentRemover
@@ -34,7 +36,16 @@ def run_content_remover(preferences: UserPreferences, reddit: praw.Reddit, auth:
 
     def interrupt_handler(signum, frame):
         print("\nInterrupt received. Stopping content removal...")
+        print("Forcing exit in 5 seconds if graceful shutdown fails...")
         content_remover.interrupt_flag = True
+
+        # Set a timer to force exit if graceful shutdown doesn't work
+        def force_exit():
+            print("\nForcing exit...")
+            os._exit(1)
+
+        timer = threading.Timer(5.0, force_exit)
+        timer.start()
 
     signal.signal(signal.SIGINT, interrupt_handler)
     signal.signal(signal.SIGTERM, interrupt_handler)
@@ -83,7 +94,8 @@ def run_content_remover(preferences: UserPreferences, reddit: praw.Reddit, auth:
 def main():
     is_exe = getattr(sys, "frozen", False)
     if is_exe:
-        print("Please enter your credential information in the window that pops up. Leave this terminal displaying this message open.")
+        print("Please enter your credential information in the window that pops up. "
+              "Always leave this terminal displaying this message open when running Ereddicator.")
     # Create an instance of RedditAuth and get the Reddit instance
     auth = RedditAuth(is_exe=is_exe)
     reddit = auth.get_reddit_instance()

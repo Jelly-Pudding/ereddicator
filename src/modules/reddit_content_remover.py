@@ -1,13 +1,15 @@
 import random
 import string
 import time
-from typing import Dict, List, Union, Callable, Tuple
+import os
+import csv
+from typing import Dict, List, Union, Callable, Tuple, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 import praw
 from prawcore import ResponseException
+from prawcore.exceptions import Forbidden
 from modules.user_preferences import UserPreferences
-
 
 class RedditContentRemover:
     """
@@ -80,30 +82,48 @@ class RedditContentRemover:
             item_type (str): The type of the item.
 
         Returns:
-            str: A string representation of the item.
+            str: A string representation of the item. Returns "FORBIDDEN" if the item cannot be accessed
+            (which can happen if the subreddit is private or banned).
         """
         try:
+            # Force fetch the data first to trigger any potential 403s. This must be done as otherwise
+            # 403s are impossible to catch.
+            _ = item._fetch()
+            
             if isinstance(item, praw.models.Comment):
-                return f"Comment '{item.body[:25]}...' in r/{item.subreddit.display_name}"
+                return (
+                    f"Comment '{item.body[:25]}"
+                    f"{'...' if len(item.body) > 25 else ''}' "
+                    f"in r/{item.subreddit.display_name}"
+                )
             if isinstance(item, praw.models.Submission):
-                return f"Post '{item.title[:25]}...' in r/{item.subreddit.display_name}"
-            # Just in case the item is not a comment or post.
+                return (
+                    f"Post '{item.title[:25]}"
+                    f"{'...' if len(item.title) > 25 else ''}' "
+                    f"in r/{item.subreddit.display_name}"
+                )
             return f"{item_type.capitalize()} item (ID: {item.id}) of type {type(item).__name__}"
+        except Forbidden:
+            return "FORBIDDEN"
         except AttributeError:
             return f"{item_type.capitalize()} item (ID: {getattr(item, 'id', 'N/A')})"
 
     def edit_item_multiple_times(self, item: Union[praw.models.Comment, praw.models.Submission],
-                                 item_type: str, edit_count: int = 3, max_retries: int = 5) -> None:
+                                 item_type: str, item_info: str, edit_count: int = 3, max_retries: int = 5) -> bool:
         """
         Edit a Reddit item (comment or post) multiple times before deletion, with retry mechanism.
 
         Args:
             item (Union[praw.models.Comment, praw.models.Submission]): The item to edit.
             item_type (str): The type of item ('comments' or 'posts').
+            item_info (str): Pre-computed string representation of the item for logging.
             edit_count (int): The number of times to edit the item. Defaults to 3.
             max_retries (int): Maximum number of retry attempts for each edit. Defaults to 5.
+
+        Returns:
+            bool: True if at least one edit was successful, False otherwise.
         """
-        item_info = self.get_item_info(item, item_type)
+        successfully_edited = False
         for i in range(edit_count):
             if self.interrupt_flag:
                 break
@@ -120,19 +140,27 @@ class RedditContentRemover:
                         f"with {text_type} text."
                     )
                     item.edit(replacement_text)
+                    successfully_edited = True
                     break
                 except praw.exceptions.RedditAPIException as e:
+                    if "Your post isn't accessible. Double-check it and try again." in str(e):
+                        print(f"'{item_info}' was found to be deleted. Skipping further edit attempts...")
+                        return False
                     if attempt < max_retries - 1:
                         sleep_time = (2 ** attempt) + (random.randint(0, 1000) / 1000)
                         print(f"Encountered a Reddit API Exception: {e}")
-                        print(f"Likely hit the rate limit. Retrying edit in {sleep_time:.2f} seconds... (Attempt {attempt + 1}/{max_retries})")
+                        print(
+                            f"Likely hit the rate limit. Retrying edit in {sleep_time:.2f} seconds... "
+                            f"(Attempt {attempt + 1}/{max_retries})"
+                        )
                         for _ in range(int(sleep_time * 10)):
                             if self.interrupt_flag:
-                                return
+                                return successfully_edited
                             time.sleep(0.1)
                     else:
                         print(f"Failed to edit {item_type[:-1]} '{item_info}' after {max_retries} attempts.")
             time.sleep(0.8)
+        return successfully_edited
 
     def process_item(self, item: Union[praw.models.Comment, praw.models.Submission],
                     item_type: str, max_retries: int = 5) -> Tuple[int, int]:
@@ -150,8 +178,32 @@ class RedditContentRemover:
         """
         deleted_count = 0
         edited_count = 0
-        item_info = self.get_item_info(item, item_type)
 
+        try:
+            item_info = self.get_item_info(item, item_type)
+            if item_info == "FORBIDDEN":
+                print(
+                    f"Access Forbidden (403) while accessing {item_type[:-1]} properties. "
+                    f"ID: {getattr(item, 'id', 'N/A')}. This is likely because the item is in a subreddit "
+                    f"which is private or banned. Skipping."
+                )
+                return (deleted_count, edited_count)
+        except Exception as e:
+            if "no data returned" in str(e).lower():
+                print(
+                    f"Skipping {item_type[:-1]} with id {item.id} - can't access the item as it is "
+                    "likely in a subreddit that is either private or banned."
+                )
+                return (deleted_count, edited_count)
+
+        # Skip already deleted or removed content...
+        if (
+            item_info.startswith("Comment '[deleted]'") or item_info.startswith("Comment '[removed]'")
+        ):
+            print(f"Skipping already deleted or removed {item_type[:-1]}: {item_info}")
+            return (deleted_count, edited_count)
+
+        # Skip if it's not in the date range...
         item_date = datetime.fromtimestamp(item.created_utc)
         if not self.preferences.is_within_date_range(item_date):
             print(
@@ -161,6 +213,7 @@ class RedditContentRemover:
             )
             return (deleted_count, edited_count)
 
+        # Skip based on the Subreddit filtering...
         subreddit_name = item.subreddit.display_name if hasattr(item, "subreddit") else None
         if subreddit_name and not self.preferences.should_process_subreddit(subreddit_name):
             if self.preferences.whitelist_subreddits:
@@ -175,6 +228,7 @@ class RedditContentRemover:
                 )
             return (deleted_count, edited_count)
 
+        # Skip already processed items...
         if hasattr(item, "id"):
             if item.id in self.processed_ids:
                 print(f"Skipping already processed item with ID: {item.id}")
@@ -189,33 +243,41 @@ class RedditContentRemover:
                     if self.preferences.only_edit_comments:
                         if self.preferences.dry_run:
                             print(f"[DRY RUN] Would edit comment: '{item_info}'")
+                            edited_count = 1
                         else:
-                            self.edit_item_multiple_times(item, item_type)
-                        edited_count = 1
+                            if self.edit_item_multiple_times(item, item_type, item_info):
+                                edited_count = 1
                     else:
                         if self.preferences.dry_run:
                             print(f"[DRY RUN] Would edit and delete comment: '{item_info}'")
+                            deleted_count = 1
                         else:
-                            self.edit_item_multiple_times(item, item_type)
-                            print(f"Deleting comment: '{item_info}'")
-                            item.delete()
-                        deleted_count = 1
+                            if self.edit_item_multiple_times(item, item_type, item_info):
+                                print(f"Deleting comment: '{item_info}'")
+                                item.delete()
+                                deleted_count = 1
+                            else:
+                                print(f"Not deleting comment due to a failure to edit it: '{item_info}'")
                 elif item_type == "posts":
                     if item.is_self:
                         if self.preferences.only_edit_posts:
                             if self.preferences.dry_run:
                                 print(f"[DRY RUN] Would edit text post: '{item_info}'")
+                                edited_count = 1
                             else:
-                                self.edit_item_multiple_times(item, item_type)
-                            edited_count = 1
+                                if self.edit_item_multiple_times(item, item_type, item_info):
+                                    edited_count = 1
                         else:
                             if self.preferences.dry_run:
                                 print(f"[DRY RUN] Would edit and delete text post: '{item_info}'")
+                                deleted_count = 1
                             else:
-                                self.edit_item_multiple_times(item, item_type)
-                                print(f"Deleting Text Post: '{item_info}'")
-                                item.delete()
-                            deleted_count = 1
+                                if self.edit_item_multiple_times(item, item_type, item_info):
+                                    print(f"Deleting Text Post: '{item_info}'")
+                                    item.delete()
+                                    deleted_count = 1
+                                else:
+                                    print(f"Not deleting text post due to a failure to edit it: '{item_info}'")
                     else:
                         print(f"It is impossible to edit content of 'Link {item_info}'.")
                         if not self.preferences.only_edit_posts:
@@ -271,8 +333,8 @@ class RedditContentRemover:
         return (deleted_count, edited_count)
 
     def process_batch(self, items: List[Union[praw.models.Comment, praw.models.Submission]],
-                      item_type: str, batch_number: int, total_deleted: int, total_edited: int,
-                      total_items: int) -> Tuple[int, int]:
+                    item_type: str, batch_number: int, total_deleted: int, total_edited: int,
+                    total_items: int) -> Tuple[int, int]:
         """
         Process a batch of Reddit items concurrently using threads.
 
@@ -288,6 +350,7 @@ class RedditContentRemover:
             Tuple[int, int]: The updated total_deleted and total_edited counts after processing the batch.
         """
         print(f"Starting batch {batch_number} for {item_type}")
+        processed_so_far = (batch_number - 1) * 50 + len(items)
 
         with ThreadPoolExecutor(max_workers=2) as executor:
             futures = [executor.submit(self.process_item, item, item_type) for item in items]
@@ -299,7 +362,10 @@ class RedditContentRemover:
                 total_deleted += deleted_count
                 total_edited += edited_count
 
-        print(f"Progress: {total_deleted} {item_type} deleted, {total_edited} edited out of {total_items} processed so far.")
+        print(
+            f"\n\n====Progress: {total_deleted} {item_type} deleted, {total_edited} edited out of "
+            f"{processed_so_far} processed so far. There are {total_items} {item_type} to process in total.====\n\n"
+        )
         print(f"Finished batch {batch_number} for {item_type}. Sleeping for five seconds...")
         for _ in range(50):
             if self.interrupt_flag:
@@ -308,7 +374,7 @@ class RedditContentRemover:
         return total_deleted, total_edited
 
     def process_items_in_batches(self, items: List[Union[praw.models.Comment, praw.models.Submission]],
-                                 item_type: str, total_items: int) -> Tuple[int, int]:
+                                item_type: str, total_items: int) -> Tuple[int, int]:
         """
         Process a list of Reddit items in batches.
 
@@ -342,6 +408,78 @@ class RedditContentRemover:
 
         return total_deleted, total_edited
 
+    def get_content_from_csv(self, filename: str, karma_threshold: Optional[int] = None) -> set:
+        """
+        Read content IDs from a Reddit data export CSV file and return filtered Reddit objects.
+
+        Args:
+            filename (str): Name of the CSV file (must be either "comments.csv" or "posts.csv")
+            karma_threshold (Optional[int]): If set, only include items with karma below this threshold.
+                Defaults to None.
+
+        Returns:
+            set: Set of filtered Reddit Comment or Submission objects loaded from the CSV.
+        """
+        if filename not in ["comments.csv", "posts.csv"]:
+            raise ValueError("Filename must be 'comments.csv' or 'posts.csv'")
+
+        content = set()
+        filepath = os.path.join(self.preferences.reddit_export_directory, filename)
+
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(f"File not found: {filepath}")
+
+        print(f"Loading {filename}...")
+        already_deleted_count = 0
+        filtered_count = 0
+        failed_count = 0
+
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                required_columns = {"id", "body"}
+                if not required_columns.issubset(reader.fieldnames):
+                    raise KeyError(f"Required columns {required_columns} not found in {filename}")
+
+                for row in reader:
+                    try:
+                        if row["body"] == "[removed]":
+                            already_deleted_count += 1
+                            continue
+
+                        if filename == "comments.csv":
+                            item = self.reddit.comment(id=row["id"])
+                        elif filename == "posts.csv":
+                            item = self.reddit.submission(id=row["id"])
+
+                        # Apply filters
+                        if karma_threshold is not None and item.score >= karma_threshold:
+                            filtered_count += 1
+                            continue
+
+                        if self.preferences.preserve_gilded and item.gilded:
+                            filtered_count += 1
+                            continue
+
+                        if self.preferences.preserve_distinguished and item.distinguished:
+                            filtered_count += 1
+                            continue
+
+                        content.add(item)
+
+                    except Exception as e:
+                        failed_count += 1
+                        print(f"Failed to load item {row['id']}: {str(e)}")
+
+            print(f"Loaded {len(content)} items from {filename} "
+                f"({filtered_count} filtered out, {already_deleted_count} already deleted, "
+                f"{failed_count} failed to load)")
+            return content
+
+        except Exception as e:
+            print(f"Error processing {filename}: {str(e)}")
+            raise
+
     @staticmethod
     def fetch_items(item_listing: Callable[..., praw.models.ListingGenerator],
                     sort_type: str) -> List[Union[praw.models.Comment, praw.models.Submission]]:
@@ -370,7 +508,8 @@ class RedditContentRemover:
         upvotes, downvotes, and hidden posts) for deletion or modification.
 
         Returns:
-            Tuple[Dict[str, int], Dict[str, int]]: Two dictionaries containing the count of deleted and edited items for each content type.
+            Tuple[Dict[str, int], Dict[str, int]]: Two dictionaries containing the count of
+            deleted and edited items for each content type.
         """
         deleted_counts = {k: 0 for k in ["comments", "posts", "saved", "upvotes", "downvotes", "hidden"]}
         edited_counts = {k: 0 for k in ["comments", "posts"]}
@@ -386,38 +525,63 @@ class RedditContentRemover:
                 "hidden": set()
             }
 
-            # Fetch comments and posts...
-            for sort_type in ["controversial", "top", "new", "hot"]:
+            # Fetch comments and posts from a Reddit export (if provided)...
+            if self.preferences.reddit_export_directory:
                 if self.preferences.delete_comments or self.preferences.only_edit_comments:
-                    print(f"Fetching comments sorted by {sort_type}...")
-                    comments = self.fetch_items(getattr(redditor.comments, sort_type), sort_type)
-                    if self.preferences.comment_karma_threshold is not None:
-                        comments = [c for c in comments if c.score < self.preferences.comment_karma_threshold]
-                    if self.preferences.preserve_gilded:
-                        comments = [c for c in comments if not c.gilded]
-                    if self.preferences.preserve_distinguished:
-                        comments = [c for c in comments if not c.distinguished]
-                    items["comments"].update(comments)
-                    print(f"Total unique comments found so far: {len(items['comments'])}")
-
+                    print(
+                        f"Fetching comments from "
+                        f"{os.path.join(self.preferences.reddit_export_directory, 'comments.csv')}..."
+                    )
+                    items["comments"].update(self.get_content_from_csv(
+                        "comments.csv",
+                        self.preferences.comment_karma_threshold
+                    ))
                 if self.preferences.delete_posts or self.preferences.only_edit_posts:
-                    print(f"Fetching posts sorted by {sort_type}...")
-                    posts = self.fetch_items(getattr(redditor.submissions, sort_type), sort_type)
-                    if self.preferences.post_karma_threshold is not None:
-                        posts = [p for p in posts if p.score < self.preferences.post_karma_threshold]
-                    if self.preferences.preserve_gilded:
-                        posts = [p for p in posts if not p.gilded]
-                    if self.preferences.preserve_distinguished:
-                        posts = [p for p in posts if not p.distinguished]
-                    items["posts"].update(posts)
-                    print(f"Total unique posts found so far: {len(items['posts'])}")
+                    print(
+                        f"Fetching posts from "
+                        f"{os.path.join(self.preferences.reddit_export_directory, 'posts.csv')}..."
+                    )
+                    items["posts"].update(self.get_content_from_csv(
+                        "posts.csv",
+                        self.preferences.post_karma_threshold
+                    ))
+
+            # Fetch comments and posts from the API if reddit_export_directory is not set...
+            else:
+                for sort_type in ["controversial", "top", "new", "hot"]:
+                    if self.preferences.delete_comments or self.preferences.only_edit_comments:
+                        print(f"Fetching comments from Reddit's API sorted by {sort_type}...")
+                        comments = self.fetch_items(getattr(redditor.comments, sort_type), sort_type)
+                        if self.preferences.comment_karma_threshold is not None:
+                            comments = [c for c in comments if c.score < self.preferences.comment_karma_threshold]
+                        if self.preferences.preserve_gilded:
+                            comments = [c for c in comments if not c.gilded]
+                        if self.preferences.preserve_distinguished:
+                            comments = [c for c in comments if not c.distinguished]
+                        items["comments"].update(comments)
+                        print(f"Total unique comments found so far: {len(items['comments'])}")
+
+                    if self.preferences.delete_posts or self.preferences.only_edit_posts:
+                        print(f"Fetching posts from Reddit's API sorted by {sort_type}...")
+                        posts = self.fetch_items(getattr(redditor.submissions, sort_type), sort_type)
+                        if self.preferences.post_karma_threshold is not None:
+                            posts = [p for p in posts if p.score < self.preferences.post_karma_threshold]
+                        if self.preferences.preserve_gilded:
+                            posts = [p for p in posts if not p.gilded]
+                        if self.preferences.preserve_distinguished:
+                            posts = [p for p in posts if not p.distinguished]
+                        items["posts"].update(posts)
+                        print(f"Total unique posts found so far: {len(items['posts'])}")
 
             # Process posts and comments first because otherwise API errors can appear when it comes to
             # deleting upvotes and downvotes on posts and comments that have been deleted.
             for item_type in ["posts", "comments"]:
                 if self.interrupt_flag:
                     break
-                if getattr(self.preferences, f"delete_{item_type}") or getattr(self.preferences, f"only_edit_{item_type}"):
+                if (
+                    getattr(self.preferences, f"delete_{item_type}")
+                    or getattr(self.preferences, f"only_edit_{item_type}")
+                ):
                     total_items = len(items[item_type])
                     print(f"Processing {total_items} {item_type}...")
                     deleted_count, edited_count = self.process_items_in_batches(
