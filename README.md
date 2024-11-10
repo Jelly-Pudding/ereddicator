@@ -32,7 +32,7 @@ Reddit's API is limited and sometimes does not retrieve all comments and posts. 
 1. Go to https://www.reddit.com/settings/data-request
 2. Fill in the form:
    * Select the appropriate request type based on your location:
-      * If you're in the EU/UK: Select "General Data Protection Regulation (GDPR)
+      * If you're in the EU/UK: Select "General Data Protection Regulation (GDPR)"
       * If you're in California: Select "California Consumer Privacy Act (CCPA)"
       * For all other locations: Select "Other"
    * For date range, select "I want data from my full time at Reddit"
