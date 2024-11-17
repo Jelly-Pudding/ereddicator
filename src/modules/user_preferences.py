@@ -43,7 +43,7 @@ class UserPreferences:
         start_date (Optional[datetime]): The start date for content processing. Content before this date will be ignored if set.
         end_date (Optional[datetime]): The end date for content processing. Content after this date will be ignored if set.
         reddit_export_directory (Optional[str]): Path to directory containing Reddit data export files. If None,
-            only API-based deletion is used.
+            content is retrieved via the Reddit API.
     """
 
     delete_comments: bool = False

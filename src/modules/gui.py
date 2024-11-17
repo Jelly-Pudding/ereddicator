@@ -195,7 +195,7 @@ class RedditContentRemoverGUI:
         # Comments
         self.content_vars["comments"] = tk.BooleanVar(value=False)
         self.only_edit_vars["comments"] = tk.BooleanVar(value=True)
-        tk.Checkbutton(left_column, text="Delete comments", variable=self.content_vars["comments"],
+        tk.Checkbutton(left_column, text="Edit then delete comments", variable=self.content_vars["comments"],
                     bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b", activebackground="#2b2b2b",
                     activeforeground="#ffffff", font=("Arial", 13),
                     command=lambda: self.update_checkboxes("comments")).pack(anchor="w", pady=5)
@@ -207,7 +207,7 @@ class RedditContentRemoverGUI:
         # Posts
         self.content_vars["posts"] = tk.BooleanVar(value=False)
         self.only_edit_vars["posts"] = tk.BooleanVar(value=True)
-        tk.Checkbutton(left_column, text="Delete posts", variable=self.content_vars["posts"],
+        tk.Checkbutton(left_column, text="Edit then delete posts", variable=self.content_vars["posts"],
                     bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b", activebackground="#2b2b2b",
                     activeforeground="#ffffff", font=("Arial", 13),
                     command=lambda: self.update_checkboxes("posts")).pack(anchor="w", pady=5)
@@ -432,7 +432,7 @@ class RedditContentRemoverGUI:
         export_question_button.pack(side="left", padx=(5, 0))
 
         export_tooltip_text = (
-            "This is optional. Handles old content (>7 years old) that Reddit's API can't access."
+            "This is optional. Handles content that Reddit's API does not retrieve."
             " Go to reddit.com/settings/data-request. Wait for Reddit's message,"
             " and download and extract the ZIP file. Select the extracted folder here."
         )
