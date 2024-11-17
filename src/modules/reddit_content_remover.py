@@ -228,6 +228,7 @@ class RedditContentRemover:
 
         # Skip if we can't get the refreshed item.
         if refreshed_item is None:
+            print(item_info)
             return (deleted_count, edited_count)
 
         item = refreshed_item
@@ -385,7 +386,7 @@ class RedditContentRemover:
         Returns:
             Tuple[int, int]: The updated total_deleted and total_edited counts after processing the batch.
         """
-        print(f"Starting batch {batch_number} for {item_type}")
+        print(f"\nStarting batch {batch_number} for {item_type}")
         processed_so_far = (batch_number - 1) * 50 + len(items)
 
         with ThreadPoolExecutor(max_workers=2) as executor:
@@ -398,15 +399,30 @@ class RedditContentRemover:
                 total_deleted += deleted_count
                 total_edited += edited_count
 
-        print(
-            f"\n\n====Progress: {total_deleted} {item_type} deleted, {total_edited} edited out of "
-            f"{processed_so_far} processed so far. There are {total_items} {item_type} to process in total.====\n\n"
-        )
-        print(f"Finished batch {batch_number} for {item_type}. Sleeping for five seconds...")
+        # Content-specific progress reporting
+        print("\n====Progress Report====")
+        print(f"Batch {batch_number}: Processed {len(items)} items")
+        print(f"Total processed so far: {processed_so_far} out of {total_items}")
+
+        if item_type in ["comments", "posts"]:
+            if getattr(self.preferences, f"only_edit_{item_type}"):
+                print(f"Successfully edited {total_edited} {item_type} in total")
+            else:
+                print(f"Successfully edited and then deleted {total_deleted} {item_type} in total")
+        elif item_type == "saved":
+            print(f"Successfully unsaved {total_deleted} items in total")
+        elif item_type in ["upvotes", "downvotes"]:
+            print(f"Successfully cleared {total_deleted} {item_type} in total")
+        elif item_type == "hidden":
+            print(f"Successfully unhidden {total_deleted} items in total")
+        print("====================\n")
+
+        print(f"Finished batch {batch_number}. Sleeping for five seconds...")
         for _ in range(50):
             if self.interrupt_flag:
                 return total_deleted, total_edited
             time.sleep(0.1)
+
         return total_deleted, total_edited
 
     def process_items_in_batches(self, items: List[Union[praw.models.Comment, praw.models.Submission]],

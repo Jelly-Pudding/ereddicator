@@ -1,6 +1,16 @@
 # Ereddicator
 
-This Python script allows you to delete all your Reddit comments, posts, saved items, upvotes, downvotes, and hidden posts. However, upvotes and downvotes on archived posts will remain. There is no way to undo them. You can disable "make my votes public" in your preferences: https://www.reddit.com/prefs/
+This Python script allows you to edit and/or delete all your Reddit comments, posts, saved items, upvotes, downvotes, and hidden posts. However, upvotes and downvotes on archived posts will remain. There is no way to undo them. You can disable "make my votes public" in your preferences: https://www.reddit.com/prefs/
+
+## Contents
+
+- [Features](#features)
+- [Reddit Data Export Request](#reddit-data-export-request)
+- [Instructions (for Windows Users)](#instructions-for-windows-users)
+- [Instructions (for Python Users)](#instructions-for-python-users)
+  - [Installation](#installation)
+  - [Instructions](#instructions)
+- [Support Me](#support-me)
 
 ## Features
 
@@ -12,7 +22,7 @@ This Python script allows you to delete all your Reddit comments, posts, saved i
   - Downvoted content
   - Hidden posts
 - **Reddit Data Export Support**: You can process content from Reddit's data export. Although it requires more effort on your part, it is ***highly recommended*** you take advantage of this feature as it ensures all of your content is processed. See [Reddit Data Export Request](#reddit-data-export-request) for instructions.
-- **Edit-Only Mode**: For comments and posts, you can choose to only edit the content without deleting it. This is recommended as Reddit is capable of restoring your content. It is also recommended as web crawlers that picked up your original content may overwrite it with the new text.
+- **Edit-Only Mode**: For comments and posts, you can choose to only edit the content without deleting it. This is ***recommended*** as Reddit is capable of restoring your content. It is also recommended as web crawlers that picked up your original content may overwrite it with the new text.
 - **Karma Threshold**: You can set karma thresholds for comments and posts. Content with karma above or equal to the threshold will be preserved.
 - **Preserve Gilded Content**: Option to preserve comments and posts that have been gilded (received Reddit gold).
 - **Preserve Distinguished Content**: Option to preserve comments and posts that have been distinguished by moderators.
@@ -23,8 +33,6 @@ This Python script allows you to delete all your Reddit comments, posts, saved i
 - **Dry Run Mode**: Simulate the removal process without actually making any changes. In this mode, Ereddicator will print out what actions would be taken (e.g. what comments and posts will be deleted) without modifying any of your Reddit content.
 - **Custom Replacement Text**: Specify custom text to replace your content during editing or before deletion. If not provided, random text will be used.
 - **Advertise Option**: When enabled, there's a 50% chance for each comment or post to be replaced with an advertisement for Ereddicator instead of random text or custom text.
-
-Note: As an added measure against the original content being read, the content replacement process (with either random text or an advertisement) occurs three times immediately before the final edit or deletion.
 
 ## Reddit Data Export Request
 Reddit's API is limited and sometimes does not retrieve all comments and posts. If you want to ensure you get everything, you will need to make a Reddit data export request:
