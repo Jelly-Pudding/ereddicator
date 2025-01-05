@@ -11,7 +11,10 @@ class UserPreferences:
     This class provides options to:
     1. Select which types of content to delete or edit (comments, posts, saved items, votes, and hidden posts).
     2. Set karma thresholds for comments and posts to preserve highly-rated content.
-    3. Choose between deleting content or only editing it (for comments and posts).
+    3. Choose between different content handling methods:
+       - Delete without editing (direct deletion)
+       - Delete after editing (overwrites content before deletion)
+       - Only edit without deletion
     4. Preserve gilded content.
     5. Preserve mod distinguished content.
     6. Optionally advertise Ereddicator when editing content.
@@ -22,8 +25,10 @@ class UserPreferences:
     11. Process content from Reddit data export files.
 
     Attributes:
-        delete_comments (bool): Flag to delete comments.
-        delete_posts (bool): Flag to delete posts.
+        delete_comments (bool): Flag to delete comments after editing.
+        delete_posts (bool): Flag to delete posts after editing.
+        delete_without_edit_comments (bool): Flag to delete comments without editing first.
+        delete_without_edit_posts (bool): Flag to delete posts without editing first.
         delete_saved (bool): Flag to unsave saved items.
         delete_upvotes (bool): Flag to remove upvotes.
         delete_downvotes (bool): Flag to remove downvotes.
@@ -35,19 +40,22 @@ class UserPreferences:
         advertise_ereddicator (bool): Flag to occasionally advertise Ereddicator when editing text.
         dry_run (bool): Flag to enable dry run mode. When True, no actual changes will be made to Reddit content.
         comment_karma_threshold (Optional[int]): Karma threshold for comments. Comments with karma
-            greater than or equal to this value will be kept. If None, all selected comments will be deleted.
+            greater than or equal to this value will be kept. If None, all selected comments will be processed.
         post_karma_threshold (Optional[int]): Karma threshold for posts. Posts with karma
-            greater than or equal to this value will be kept. If None, all selected posts will be deleted.
-        whitelist_subreddits (List[str]): List of subreddit names to preserve (not delete/edit content from).
-        blacklist_subreddits (List[str]): List of subreddit names to exclusively delete/edit content from.
+            greater than or equal to this value will be kept. If None, all selected posts will be processed.
+        whitelist_subreddits (List[str]): List of subreddit names to preserve (not process content from).
+        blacklist_subreddits (List[str]): List of subreddit names to exclusively process content from.
         start_date (Optional[datetime]): The start date for content processing. Content before this date will be ignored if set.
         end_date (Optional[datetime]): The end date for content processing. Content after this date will be ignored if set.
+        custom_replacement_text (Optional[str]): Custom text to use when editing content. If None, random text will be used.
         reddit_export_directory (Optional[str]): Path to directory containing Reddit data export files. If None,
             content is retrieved via the Reddit API.
     """
 
     delete_comments: bool = False
     delete_posts: bool = False
+    delete_without_edit_comments: bool = False
+    delete_without_edit_posts: bool = False
     delete_saved: bool = True
     delete_upvotes: bool = True
     delete_downvotes: bool = True
@@ -72,9 +80,20 @@ class UserPreferences:
         Check if any content type is selected for deletion or modification.
 
         Returns:
-            bool: True if at least one content type is selected for deletion or modification, False otherwise.
+            bool: True if at least one content type is selected for processing, False otherwise.
         """
-        return any(getattr(self, field) for field in self.__dataclass_fields__ if field.startswith('delete_') or field.startswith('only_edit_'))
+        return any([
+            self.delete_comments,
+            self.delete_posts,
+            self.delete_without_edit_comments,
+            self.delete_without_edit_posts,
+            self.delete_saved,
+            self.delete_upvotes,
+            self.delete_downvotes,
+            self.delete_hidden,
+            self.only_edit_comments,
+            self.only_edit_posts
+        ])
 
     def should_process_subreddit(self, subreddit_name: str) -> bool:
         """

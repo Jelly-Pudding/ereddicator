@@ -23,6 +23,7 @@ This Python script allows you to edit and/or delete all your Reddit comments, po
   - Hidden posts
 - **Reddit Data Export Support**: You can process content from Reddit's data export. Although it requires more effort on your part, it is ***highly recommended*** you take advantage of this feature as it ensures all of your content is processed. See [Reddit Data Export Request](#reddit-data-export-request) for instructions.
 - **Edit-Only Mode**: For comments and posts, you can choose to only edit the content without deleting it. This is ***recommended*** as Reddit is capable of restoring your content. It is also recommended as web crawlers that picked up your original content may overwrite it with the new text.
+- **Delete-Only Mode**: For comments and posts, you can choose to directly delete content without editing it first. This can be useful if you want to avoid potential auto-moderator actions that might be triggered by edited content. Some subreddits may have auto-moderators configured to take action on edited content which could result in unwanted bans.
 - **Karma Threshold**: You can set karma thresholds for comments and posts. Content with karma above or equal to the threshold will be preserved.
 - **Preserve Gilded Content**: Option to preserve comments and posts that have been gilded (received Reddit gold).
 - **Preserve Distinguished Content**: Option to preserve comments and posts that have been distinguished by moderators.
