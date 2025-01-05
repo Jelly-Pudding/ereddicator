@@ -277,7 +277,15 @@ class RedditContentRemover:
                 return (deleted_count, edited_count)
             try:
                 if item_type == "comments":
-                    if self.preferences.only_edit_comments:
+                    if self.preferences.delete_without_edit_comments:
+                        if self.preferences.dry_run:
+                            print(f"[DRY RUN] Would delete comment without editing: '{item_info}'")
+                            deleted_count = 1
+                        else:
+                            print(f"Deleting comment without editing: '{item_info}'")
+                            item.delete()
+                            deleted_count = 1
+                    elif self.preferences.only_edit_comments:
                         if self.preferences.dry_run:
                             print(f"[DRY RUN] Would edit comment: '{item_info}'")
                             edited_count = 1
@@ -295,9 +303,18 @@ class RedditContentRemover:
                                 deleted_count = 1
                             else:
                                 print(f"Not deleting comment due to a failure to edit it: '{item_info}'")
+
                 elif item_type == "posts":
                     if item.is_self:
-                        if self.preferences.only_edit_posts:
+                        if self.preferences.delete_without_edit_posts:
+                            if self.preferences.dry_run:
+                                print(f"[DRY RUN] Would delete text post without editing: '{item_info}'")
+                                deleted_count = 1
+                            else:
+                                print(f"Deleting text post without editing: '{item_info}'")
+                                item.delete()
+                                deleted_count = 1
+                        elif self.preferences.only_edit_posts:
                             if self.preferences.dry_run:
                                 print(f"[DRY RUN] Would edit text post: '{item_info}'")
                                 edited_count = 1
@@ -310,18 +327,19 @@ class RedditContentRemover:
                                 deleted_count = 1
                             else:
                                 if self.edit_item_multiple_times(item, item_type, item_info):
-                                    print(f"Deleting Text Post: '{item_info}'")
+                                    print(f"Deleting text post: '{item_info}'")
                                     item.delete()
                                     deleted_count = 1
                                 else:
                                     print(f"Not deleting text post due to a failure to edit it: '{item_info}'")
                     else:
-                        print(f"It is impossible to edit content of 'Link {item_info}'.")
+                        if not self.preferences.delete_without_edit_posts:
+                            print(f"It is impossible to edit content of 'Link {item_info}'.")
                         if not self.preferences.only_edit_posts:
                             if self.preferences.dry_run:
                                 print(f"[DRY RUN] Would delete link post: '{item_info}'")
                             else:
-                                print(f"Deleting Link Post: '{item_info}'")
+                                print(f"Deleting link post: '{item_info}'")
                                 item.delete()
                             deleted_count = 1
                 elif item_type == "saved":
@@ -347,6 +365,7 @@ class RedditContentRemover:
                         item.unhide()
                     deleted_count = 1
                 return (deleted_count, edited_count)
+
             except (praw.exceptions.RedditAPIException, ResponseException) as e:
                 if isinstance(e, ResponseException) and e.response.status_code == 400:
                     print(
@@ -405,7 +424,9 @@ class RedditContentRemover:
         print(f"Total processed so far: {processed_so_far} out of {total_items}")
 
         if item_type in ["comments", "posts"]:
-            if getattr(self.preferences, f"only_edit_{item_type}"):
+            if getattr(self.preferences, f"delete_without_edit_{item_type}"):
+                print(f"Successfully deleted {total_deleted} {item_type} without editing")
+            elif getattr(self.preferences, f"only_edit_{item_type}"):
                 print(f"Successfully edited {total_edited} {item_type} in total")
             else:
                 print(f"Successfully edited and then deleted {total_deleted} {item_type} in total")
@@ -488,11 +509,12 @@ class RedditContentRemover:
         already_deleted_count = 0
         filtered_count = 0
         failed_count = 0
+        date_filtered_count = 0
 
         try:
             with open(filepath, "r", encoding="utf-8") as f:
                 reader = csv.DictReader(f)
-                required_columns = {"id", "body"}
+                required_columns = {"id", "body", "date"}
                 if not required_columns.issubset(reader.fieldnames):
                     raise KeyError(f"Required columns {required_columns} not found in {filename}")
 
@@ -500,6 +522,18 @@ class RedditContentRemover:
                     try:
                         if row["body"] == "[removed]":
                             already_deleted_count += 1
+                            filtered_count += 1
+                            continue
+
+                        try:
+                            created_date = datetime.strptime(row["date"], "%Y-%m-%d %H:%M:%S UTC")
+                            if not self.preferences.is_within_date_range(created_date):
+                                filtered_count += 1
+                                date_filtered_count += 1
+                                continue
+                        except ValueError:
+                            print(f"Invalid date value in row with ID {row['id']}")
+                            failed_count += 1
                             continue
 
                         if filename == "comments.csv":
@@ -507,7 +541,7 @@ class RedditContentRemover:
                         elif filename == "posts.csv":
                             item = self.reddit.submission(id=row["id"])
 
-                        # Apply filters
+                        # Apply remaining filters
                         if karma_threshold is not None and item.score >= karma_threshold:
                             filtered_count += 1
                             continue
@@ -527,8 +561,8 @@ class RedditContentRemover:
                         print(f"Failed to load item {row['id']}: {str(e)}")
 
             print(f"Loaded {len(content)} items from {filename} "
-                f"({filtered_count} filtered out, {already_deleted_count} already deleted, "
-                f"{failed_count} failed to load)")
+                  f"({filtered_count} filtered out, {date_filtered_count} outside date range, "
+                  f"{already_deleted_count} already deleted, {failed_count} failed to load)")
             return content
 
         except Exception as e:
@@ -582,7 +616,9 @@ class RedditContentRemover:
 
             # Fetch comments and posts from a Reddit export (if provided)...
             if self.preferences.reddit_export_directory:
-                if self.preferences.delete_comments or self.preferences.only_edit_comments:
+                if (self.preferences.delete_comments or
+                    self.preferences.only_edit_comments or
+                    self.preferences.delete_without_edit_comments):
                     print(
                         f"Fetching comments from "
                         f"{os.path.join(self.preferences.reddit_export_directory, 'comments.csv')}..."
@@ -591,7 +627,9 @@ class RedditContentRemover:
                         "comments.csv",
                         self.preferences.comment_karma_threshold
                     ))
-                if self.preferences.delete_posts or self.preferences.only_edit_posts:
+                if (self.preferences.delete_posts or
+                    self.preferences.only_edit_posts or
+                    self.preferences.delete_without_edit_posts):
                     print(
                         f"Fetching posts from "
                         f"{os.path.join(self.preferences.reddit_export_directory, 'posts.csv')}..."
@@ -604,7 +642,9 @@ class RedditContentRemover:
             # Fetch comments and posts from the API if reddit_export_directory is not set...
             else:
                 for sort_type in ["controversial", "top", "new", "hot"]:
-                    if self.preferences.delete_comments or self.preferences.only_edit_comments:
+                    if (self.preferences.delete_comments or
+                        self.preferences.only_edit_comments or
+                        self.preferences.delete_without_edit_comments):
                         print(f"Fetching comments from Reddit's API sorted by {sort_type}...")
                         comments = self.fetch_items(getattr(redditor.comments, sort_type), sort_type)
                         if self.preferences.comment_karma_threshold is not None:
@@ -613,10 +653,14 @@ class RedditContentRemover:
                             comments = [c for c in comments if not c.gilded]
                         if self.preferences.preserve_distinguished:
                             comments = [c for c in comments if not c.distinguished]
+                        comments = [c for c in comments if self.preferences.is_within_date_range(datetime.fromtimestamp(c.created_utc))]
+
                         items["comments"].update(comments)
                         print(f"Total unique comments found so far: {len(items['comments'])}")
 
-                    if self.preferences.delete_posts or self.preferences.only_edit_posts:
+                    if (self.preferences.delete_posts or
+                        self.preferences.only_edit_posts or
+                        self.preferences.delete_without_edit_posts):
                         print(f"Fetching posts from Reddit's API sorted by {sort_type}...")
                         posts = self.fetch_items(getattr(redditor.submissions, sort_type), sort_type)
                         if self.preferences.post_karma_threshold is not None:
@@ -625,6 +669,7 @@ class RedditContentRemover:
                             posts = [p for p in posts if not p.gilded]
                         if self.preferences.preserve_distinguished:
                             posts = [p for p in posts if not p.distinguished]
+                        posts = [p for p in posts if self.preferences.is_within_date_range(datetime.fromtimestamp(p.created_utc))]
                         items["posts"].update(posts)
                         print(f"Total unique posts found so far: {len(items['posts'])}")
 
@@ -636,6 +681,7 @@ class RedditContentRemover:
                 if (
                     getattr(self.preferences, f"delete_{item_type}")
                     or getattr(self.preferences, f"only_edit_{item_type}")
+                    or getattr(self.preferences, f"delete_without_edit_{item_type}")
                 ):
                     total_items = len(items[item_type])
                     print(f"Processing {total_items} {item_type}...")

@@ -177,11 +177,13 @@ class RedditContentRemoverGUI:
             self.export_directory_entry.config(fg="white")
 
     def create_widgets(self) -> None:
+        """Create and arrange the widgets for the main GUI."""
         main_frame = tk.Frame(self.master, bg="#2b2b2b")
         main_frame.pack(padx=20, pady=20, fill=tk.BOTH, expand=True)
 
         self.content_vars = {}
         self.only_edit_vars = {}
+        self.delete_without_edit_vars = {}
         self.preserve_vars = {}
 
         checkbox_frame = tk.Frame(main_frame, bg="#2b2b2b")
@@ -193,58 +195,128 @@ class RedditContentRemoverGUI:
         right_column.pack(side="right", fill="y", expand=True)
 
         # Comments
+        comment_frame = tk.LabelFrame(left_column, text="Comment Options",
+                                    bg="#2b2b2b", fg="#ffffff", font=("Arial", 13))
+        comment_frame.pack(anchor="w", pady=5, padx=5, fill="x")
+
         self.content_vars["comments"] = tk.BooleanVar(value=False)
         self.only_edit_vars["comments"] = tk.BooleanVar(value=True)
-        tk.Checkbutton(left_column, text="Edit then delete comments", variable=self.content_vars["comments"],
-                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b", activebackground="#2b2b2b",
-                    activeforeground="#ffffff", font=("Arial", 13),
-                    command=lambda: self.update_checkboxes("comments")).pack(anchor="w", pady=5)
-        tk.Checkbutton(right_column, text="Only edit comments", variable=self.only_edit_vars["comments"],
-                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b", activebackground="#2b2b2b",
-                    activeforeground="#ffffff", font=("Arial", 13),
-                    command=lambda: self.update_checkboxes("comments", edit=True)).pack(anchor="w", pady=5)
+        self.delete_without_edit_vars["comments"] = tk.BooleanVar(value=False)
+
+        tk.Checkbutton(comment_frame, text="Edit then delete comments",
+                    variable=self.content_vars["comments"],
+                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b",
+                    activebackground="#2b2b2b", activeforeground="#ffffff",
+                    font=("Arial", 13),
+                    command=lambda: self.update_checkboxes("comments", "edit_then_delete")
+                    ).pack(anchor="w", pady=2)
+
+        tk.Checkbutton(comment_frame, text="Only edit comments",
+                    variable=self.only_edit_vars["comments"],
+                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b",
+                    activebackground="#2b2b2b", activeforeground="#ffffff",
+                    font=("Arial", 13),
+                    command=lambda: self.update_checkboxes("comments", "only_edit")
+                    ).pack(anchor="w", pady=2)
+
+        tk.Checkbutton(comment_frame, text="Delete comments without editing",
+                    variable=self.delete_without_edit_vars["comments"],
+                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b",
+                    activebackground="#2b2b2b", activeforeground="#ffffff",
+                    font=("Arial", 13),
+                    command=lambda: self.update_checkboxes("comments", "delete_without_edit")
+                    ).pack(anchor="w", pady=2)
 
         # Posts
+        post_frame = tk.LabelFrame(right_column, text="Post Options",
+                                bg="#2b2b2b", fg="#ffffff", font=("Arial", 13))
+        post_frame.pack(anchor="w", pady=5, padx=5, fill="x")
+
         self.content_vars["posts"] = tk.BooleanVar(value=False)
         self.only_edit_vars["posts"] = tk.BooleanVar(value=True)
-        tk.Checkbutton(left_column, text="Edit then delete posts", variable=self.content_vars["posts"],
-                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b", activebackground="#2b2b2b",
-                    activeforeground="#ffffff", font=("Arial", 13),
-                    command=lambda: self.update_checkboxes("posts")).pack(anchor="w", pady=5)
-        tk.Checkbutton(right_column, text="Only edit posts", variable=self.only_edit_vars["posts"],
-                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b", activebackground="#2b2b2b",
-                    activeforeground="#ffffff", font=("Arial", 13),
-                    command=lambda: self.update_checkboxes("posts", edit=True)).pack(anchor="w", pady=5)
+        self.delete_without_edit_vars["posts"] = tk.BooleanVar(value=False)
 
-        # Upvotes and Downvotes
-        self.content_vars["upvotes"] = tk.BooleanVar(value=True)
-        self.content_vars["downvotes"] = tk.BooleanVar(value=True)
-        tk.Checkbutton(left_column, text="Delete upvotes", variable=self.content_vars["upvotes"],
-                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b", activebackground="#2b2b2b",
-                    activeforeground="#ffffff", font=("Arial", 13)).pack(anchor="w", pady=5)
-        tk.Checkbutton(right_column, text="Delete downvotes", variable=self.content_vars["downvotes"],
-                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b", activebackground="#2b2b2b",
-                    activeforeground="#ffffff", font=("Arial", 13)).pack(anchor="w", pady=5)
+        tk.Checkbutton(post_frame, text="Edit then delete posts",
+                    variable=self.content_vars["posts"],
+                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b",
+                    activebackground="#2b2b2b", activeforeground="#ffffff",
+                    font=("Arial", 13),
+                    command=lambda: self.update_checkboxes("posts", "edit_then_delete")
+                    ).pack(anchor="w", pady=2)
+
+        tk.Checkbutton(post_frame, text="Only edit posts",
+                    variable=self.only_edit_vars["posts"],
+                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b",
+                    activebackground="#2b2b2b", activeforeground="#ffffff",
+                    font=("Arial", 13),
+                    command=lambda: self.update_checkboxes("posts", "only_edit")
+                    ).pack(anchor="w", pady=2)
+
+        tk.Checkbutton(post_frame, text="Delete posts without editing",
+                    variable=self.delete_without_edit_vars["posts"],
+                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b",
+                    activebackground="#2b2b2b", activeforeground="#ffffff",
+                    font=("Arial", 13),
+                    command=lambda: self.update_checkboxes("posts", "delete_without_edit")
+                    ).pack(anchor="w", pady=2)
+
+        # Other content types
+        other_frame = tk.LabelFrame(main_frame, text="Other Content Options",
+                                bg="#2b2b2b", fg="#ffffff", font=("Arial", 13))
+        other_frame.pack(fill="x", pady=10)
+
+        # Create two columns for other options
+        other_left = tk.Frame(other_frame, bg="#2b2b2b")
+        other_left.pack(side="left", fill="y", expand=True)
+        other_right = tk.Frame(other_frame, bg="#2b2b2b")
+        other_right.pack(side="right", fill="y", expand=True)
 
         # Saved and Hidden
         self.content_vars["saved"] = tk.BooleanVar(value=True)
         self.content_vars["hidden"] = tk.BooleanVar(value=True)
-        tk.Checkbutton(left_column, text="Delete saved", variable=self.content_vars["saved"],
-                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b", activebackground="#2b2b2b",
-                    activeforeground="#ffffff", font=("Arial", 13)).pack(anchor="w", pady=5)
-        tk.Checkbutton(right_column, text="Delete hidden", variable=self.content_vars["hidden"],
-                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b", activebackground="#2b2b2b",
-                    activeforeground="#ffffff", font=("Arial", 13)).pack(anchor="w", pady=5)
+        tk.Checkbutton(other_left, text="Delete saved", variable=self.content_vars["saved"],
+                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b",
+                    activebackground="#2b2b2b", activeforeground="#ffffff",
+                    font=("Arial", 13)).pack(anchor="w", pady=2)
+        tk.Checkbutton(other_right, text="Delete hidden", variable=self.content_vars["hidden"],
+                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b",
+                    activebackground="#2b2b2b", activeforeground="#ffffff",
+                    font=("Arial", 13)).pack(anchor="w", pady=2)
+
+        # Upvotes and Downvotes
+        self.content_vars["upvotes"] = tk.BooleanVar(value=True)
+        self.content_vars["downvotes"] = tk.BooleanVar(value=True)
+        tk.Checkbutton(other_left, text="Delete upvotes", variable=self.content_vars["upvotes"],
+                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b",
+                    activebackground="#2b2b2b", activeforeground="#ffffff",
+                    font=("Arial", 13)).pack(anchor="w", pady=2)
+        tk.Checkbutton(other_right, text="Delete downvotes", variable=self.content_vars["downvotes"],
+                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b",
+                    activebackground="#2b2b2b", activeforeground="#ffffff",
+                    font=("Arial", 13)).pack(anchor="w", pady=2)
+
+        # Miscellaneous options
+        misc_frame = tk.LabelFrame(main_frame, text="Miscellaneous Options",
+                                bg="#2b2b2b", fg="#ffffff", font=("Arial", 13))
+        misc_frame.pack(fill="x", pady=10)
+
+        # Create two columns for miscellaneous options
+        misc_left = tk.Frame(misc_frame, bg="#2b2b2b")
+        misc_left.pack(side="left", fill="y", expand=True)
+        misc_right = tk.Frame(misc_frame, bg="#2b2b2b")
+        misc_right.pack(side="right", fill="y", expand=True)
 
         # Preserve Gilded and Distinguished
         self.preserve_vars["gilded"] = tk.BooleanVar(value=False)
         self.preserve_vars["distinguished"] = tk.BooleanVar(value=False)
-        tk.Checkbutton(left_column, text="Preserve gilded", variable=self.preserve_vars["gilded"],
-                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b", activebackground="#2b2b2b",
-                    activeforeground="#ffffff", font=("Arial", 13)).pack(anchor="w", pady=5)
-        tk.Checkbutton(right_column, text="Preserve mod distinguished", variable=self.preserve_vars["distinguished"],
-                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b", activebackground="#2b2b2b",
-                    activeforeground="#ffffff", font=("Arial", 13)).pack(anchor="w", pady=5)
+        tk.Checkbutton(misc_left, text="Preserve gilded", variable=self.preserve_vars["gilded"],
+                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b",
+                    activebackground="#2b2b2b", activeforeground="#ffffff",
+                    font=("Arial", 13)).pack(anchor="w", pady=2)
+        tk.Checkbutton(misc_right, text="Preserve mod distinguished", variable=self.preserve_vars["distinguished"],
+                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b",
+                    activebackground="#2b2b2b", activeforeground="#ffffff",
+                    font=("Arial", 13)).pack(anchor="w", pady=2)
 
         # Advertising option with question mark
         self.advertise_var = tk.BooleanVar(value=True)
@@ -505,30 +577,44 @@ class RedditContentRemoverGUI:
         widget.bind("<Enter>", enter)
         widget.bind("<Leave>", leave)
 
-    def update_checkboxes(self, content_type: str, edit: bool = False) -> None:
+    def update_checkboxes(self, content_type: str, option_type: str = "edit_then_delete") -> None:
         """
-        Update checkbox states to ensure "Delete" and "Only Edit" are mutually exclusive.
+        Update checkbox states to ensure content handling options are mutually exclusive.
 
         Args:
             content_type (str): The type of content being updated ('comments' or 'posts').
-            edit (bool): Whether the update is triggered by the "Only Edit" checkbox.
+            option_type (str): The type of option being selected:
+                - "edit_then_delete": Edit content before deleting
+                - "only_edit": Only edit without deleting
+                - "delete_without_edit": Delete without editing
         """
         if content_type in ["comments", "posts"]:
-            if edit:
-                if self.only_edit_vars[content_type].get():
-                    self.content_vars[content_type].set(False)
-            else:
+            if option_type == "edit_then_delete":
                 if self.content_vars[content_type].get():
                     self.only_edit_vars[content_type].set(False)
+                    self.delete_without_edit_vars[content_type].set(False)
+            elif option_type == "only_edit":
+                if self.only_edit_vars[content_type].get():
+                    self.content_vars[content_type].set(False)
+                    self.delete_without_edit_vars[content_type].set(False)
+            elif option_type == "delete_without_edit":
+                if self.delete_without_edit_vars[content_type].get():
+                    self.content_vars[content_type].set(False)
+                    self.only_edit_vars[content_type].set(False)
 
-        self.update_entry_states()
+            self.update_entry_states()
 
     def update_entry_states(self) -> None:
         """
         Update the state of karma threshold entry fields based on checkbox states.
         """
-        comment_state = "normal" if self.content_vars["comments"].get() or self.only_edit_vars["comments"].get() else "disabled"
-        post_state = "normal" if self.content_vars["posts"].get() or self.only_edit_vars["posts"].get() else "disabled"
+        comment_state = "normal" if (self.content_vars["comments"].get() or
+                                     self.only_edit_vars["comments"].get() or
+                                     self.delete_without_edit_vars["comments"].get()) else "disabled"
+
+        post_state = "normal" if (self.content_vars["posts"].get() or
+                                  self.only_edit_vars["posts"].get() or
+                                  self.delete_without_edit_vars["posts"].get()) else "disabled"
 
         self.comment_threshold.config(state=comment_state)
         self.post_threshold.config(state=post_state)
@@ -536,12 +622,17 @@ class RedditContentRemoverGUI:
         self.comment_label.config(fg="#ffffff" if comment_state == "normal" else "#808080")
         self.post_label.config(fg="#ffffff" if post_state == "normal" else "#808080")
 
+
     def start_removal(self) -> None:
+        """Prepare user preferences and start the content removal process."""
         for content_type, var in self.content_vars.items():
             setattr(self.preferences, f"delete_{content_type}", var.get())
 
         self.preferences.only_edit_comments = self.only_edit_vars["comments"].get()
         self.preferences.only_edit_posts = self.only_edit_vars["posts"].get()
+        self.preferences.delete_without_edit_comments = self.delete_without_edit_vars["comments"].get()
+        self.preferences.delete_without_edit_posts = self.delete_without_edit_vars["posts"].get()
+
         self.preferences.preserve_gilded = self.preserve_vars["gilded"].get()
         self.preferences.preserve_distinguished = self.preserve_vars["distinguished"].get()
 
