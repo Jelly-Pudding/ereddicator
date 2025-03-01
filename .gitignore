@@ -3,3 +3,4 @@ src/reddit_credentials.ini
 build/
 dist/
 ereddicator.spec
+ereddicator_*_processed_ids.txt

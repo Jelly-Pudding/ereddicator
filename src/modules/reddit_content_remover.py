@@ -33,13 +33,51 @@ class RedditContentRemover:
         self.preferences = preferences
         self.total_deleted_dict = {k: 0 for k in ["comments", "posts", "saved", "upvotes", "downvotes", "hidden"]}
         self.total_edited_dict = {k: 0 for k in ["comments", "posts"]}
-        self.processed_ids = set()
+        self.processed_ids_file = f"ereddicator_{self.username}_processed_ids.txt"
+        self.processed_ids = self.load_processed_ids()
         self.interrupt_flag = False
-        self.ad_text = (
-            "Original Content erased using Ereddicator. "
-            "Want to wipe your own Reddit history? "
-            "Please see https://github.com/Jelly-Pudding/ereddicator for instructions."
-        )
+        self.ad_messages = [
+            "Original content erased using Ereddicator.",
+            "This content has been removed with Ereddicator.",
+            "Content deleted with Ereddicator.",
+            "This text was edited using Ereddicator.",
+            "Ereddicator was used to remove this content.",
+            "Content cleared with Ereddicator.",
+            "This text was replaced using Ereddicator."
+        ]
+
+    def load_processed_ids(self) -> set:
+        """
+        Load the set of processed item IDs from a file.
+        
+        Returns:
+            set: A set of processed item IDs.
+        """
+        processed_ids = set()
+        try:
+            if os.path.exists(self.processed_ids_file):
+                with open(self.processed_ids_file, "r") as f:
+                    for line in f:
+                        processed_ids.add(line.strip())
+                print(f"Loaded {len(processed_ids)} previously processed IDs from {self.processed_ids_file}")
+        except Exception as e:
+            print(f"Error loading processed IDs: {e}")
+        return processed_ids
+
+    def save_processed_ids(self) -> None:
+        """
+        Save the set of processed item IDs to a file.
+        
+        Returns:
+            None
+        """
+        try:
+            with open(self.processed_ids_file, "w") as f:
+                for item_id in self.processed_ids:
+                    f.write(f"{item_id}\n")
+            print(f"Saved {len(self.processed_ids)} processed IDs to {self.processed_ids_file}")
+        except Exception as e:
+            print(f"Error saving processed IDs: {e}")
 
     @staticmethod
     def generate_random_text() -> str:
@@ -68,7 +106,7 @@ class RedditContentRemover:
             str: The text to use for replacement.
         """
         if self.preferences.advertise_ereddicator and random.random() < 0.5:
-            return self.ad_text
+            return random.choice(self.ad_messages)
         if self.preferences.custom_replacement_text:
             return self.preferences.custom_replacement_text
         return self.generate_random_text()
@@ -177,7 +215,7 @@ class RedditContentRemover:
                 try:
                     text_type = (
                         "custom" if replacement_text == self.preferences.custom_replacement_text
-                        else "advertising" if replacement_text == self.ad_text
+                        else "advertising" if replacement_text in self.ad_messages
                         else "random"
                     )
                     print(
@@ -270,7 +308,6 @@ class RedditContentRemover:
             if item.id in self.processed_ids:
                 print(f"Skipping already processed item with ID: {item.id}")
                 return (deleted_count, edited_count)
-            self.processed_ids.add(item.id)
 
         for attempt in range(max_retries):
             if self.interrupt_flag:
@@ -364,6 +401,10 @@ class RedditContentRemover:
                         print(f"Unhiding post: {item_info}")
                         item.unhide()
                     deleted_count = 1
+
+                if hasattr(item, "id"):
+                    self.processed_ids.add(item.id)
+
                 return (deleted_count, edited_count)
 
             except (praw.exceptions.RedditAPIException, ResponseException) as e:
@@ -437,6 +478,10 @@ class RedditContentRemover:
         elif item_type == "hidden":
             print(f"Successfully unhidden {total_deleted} items in total")
         print("====================\n")
+
+        # Save processed IDs after each batch
+        print("Saving processed IDs...")
+        self.save_processed_ids()
 
         print(f"Finished batch {batch_number}. Sleeping for five seconds...")
         for _ in range(50):
@@ -730,4 +775,6 @@ class RedditContentRemover:
             for item_type, count in edited_counts.items():
                 self.total_edited_dict[item_type] += count
 
+            self.save_processed_ids()
+        
         return deleted_counts, edited_counts
