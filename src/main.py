@@ -36,6 +36,8 @@ def run_content_remover(preferences: UserPreferences, reddit: praw.Reddit, auth:
 
     def interrupt_handler(signum, frame):
         print("\nInterrupt received. Stopping content removal...")
+        print("Saving processed IDs before exit...")
+        content_remover.save_processed_ids()
         print("Forcing exit in 5 seconds if graceful shutdown fails...")
         content_remover.interrupt_flag = True
 
@@ -83,6 +85,8 @@ def run_content_remover(preferences: UserPreferences, reddit: praw.Reddit, auth:
 
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
+        print("Saving processed IDs before exit...")
+        content_remover.save_processed_ids()
     finally:
         print(f"\nTotal content processed across {run_count} {'run' if run_count == 1 else 'runs'}:")
         for item_type, count in content_remover.total_deleted_dict.items():

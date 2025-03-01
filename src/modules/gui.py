@@ -319,7 +319,7 @@ class RedditContentRemoverGUI:
                     font=("Arial", 13)).pack(anchor="w", pady=2)
 
         # Advertising option with question mark
-        self.advertise_var = tk.BooleanVar(value=True)
+        self.advertise_var = tk.BooleanVar(value=False)
         advertise_frame = tk.Frame(main_frame, bg="#2b2b2b")
         advertise_frame.pack(fill="x", pady=10)
 
@@ -337,7 +337,7 @@ class RedditContentRemoverGUI:
         ad_question_button = tk.Button(advertise_frame, text="?", font=("Arial", 10), bg="#3c3c3c", fg="#ffffff")
         ad_question_button.pack(side="left", padx=(5, 10))
 
-        ad_tooltip_text = "Occasionally replaces content with an Ereddicator ad when editing."
+        ad_tooltip_text = "Occasionally replaces content with a simple message mentioning Ereddicator when editing."
         self.create_tooltip(ad_question_button, ad_tooltip_text)
 
         # Dry Run option

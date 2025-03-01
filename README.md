@@ -22,7 +22,9 @@ This Python script allows you to edit and/or delete all your Reddit comments, po
   - Downvoted content
   - Hidden posts
 - **Reddit Data Export Support**: You can process content from Reddit's data export. Although it requires more effort on your part, it is ***highly recommended*** you take advantage of this feature as it ensures all of your content is processed. See [Reddit Data Export Request](#reddit-data-export-request) for instructions.
-- **Edit-Only Mode**: For comments and posts, you can choose to only edit the content without deleting it. This is ***recommended*** as Reddit is capable of restoring your content. It is also recommended as web crawlers that picked up your original content may overwrite it with the new text.
+- **Edit-Only Mode**: For comments and posts, you can choose to only edit the content without deleting it. This is ***highly recommended*** for a couple of reasons:
+  - Reddit is capable of restoring deleted content, but if you edit content first and leave it edited for some time, any future restoration would likely recover the edited version rather than the original content.
+  - Web crawlers and archives that previously captured your content may overwrite their records with your edited version.
 - **Delete-Only Mode**: For comments and posts, you can choose to directly delete content without editing it first. This can be useful if you want to avoid potential auto-moderator actions that might be triggered by edited content. Some subreddits may have auto-moderators configured to take action on edited content which could result in unwanted bans.
 - **Karma Threshold**: You can set karma thresholds for comments and posts. Content with karma above or equal to the threshold will be preserved.
 - **Preserve Gilded Content**: Option to preserve comments and posts that have been gilded (received Reddit gold).
@@ -33,7 +35,8 @@ This Python script allows you to edit and/or delete all your Reddit comments, po
 - **Date Range Filtering**: Set a specific date range to process content from, allowing you to target content from a particular time period.
 - **Dry Run Mode**: Simulate the removal process without actually making any changes. In this mode, Ereddicator will print out what actions would be taken (e.g. what comments and posts will be deleted) without modifying any of your Reddit content.
 - **Custom Replacement Text**: Specify custom text to replace your content during editing or before deletion. If not provided, random text will be used.
-- **Advertise Option**: When enabled, there's a 50% chance for each comment or post to be replaced with an advertisement for Ereddicator instead of random text or custom text.
+- **Persistent Processing**: Tracks which items have already been processed across multiple runs, ensuring that items are not processed again if the script is restarted or interrupted.
+- **Advertise Option**: When enabled, there's a 50% chance for each comment or post to be replaced with a simple message mentioning Ereddicator instead of random text or custom text.
 
 ## Reddit Data Export Request
 Reddit's API is limited and sometimes does not retrieve all comments and posts. If you want to ensure you get everything, you will need to make a Reddit data export request:
