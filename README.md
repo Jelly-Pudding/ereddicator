@@ -110,6 +110,7 @@ If you don't want to install Python, you can use the `.exe` version of the scrip
    - The client_secret is what appears next to "secret". It will look like this: "ZeqnEO_F21BrzzgOpb_es4kOfbhTww"
 3. Create a file named `reddit_credentials.ini` in the same directory as the script.
 4. Add your Reddit API credentials to the file in one of the following formats:
+
    **For traditional Reddit accounts:**
    ```
    [reddit]
