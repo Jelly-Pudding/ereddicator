@@ -22,6 +22,7 @@ This Python script allows you to edit and/or delete all your Reddit comments, po
   - Downvoted content
   - Hidden posts
 - **Reddit Data Export Support**: You can process content from Reddit's data export. Although it requires more effort on your part, it is ***highly recommended*** you take advantage of this feature as it ensures all of your content is processed. See [Reddit Data Export Request](#reddit-data-export-request) for instructions.
+- **OAuth Authentication Support**: For users who log in to Reddit via Google ("Login with Google"), you can authenticate via OAuth.
 - **Edit-Only Mode**: For comments and posts, you can choose to only edit the content without deleting it. This is ***highly recommended*** for a couple of reasons:
   - Reddit is capable of restoring deleted content, but if you edit content first and leave it edited for some time, any future restoration would likely recover the edited version rather than the original content.
   - Web crawlers and archives that previously captured your content may overwrite their records with your edited version.
@@ -70,9 +71,17 @@ If you don't want to install Python, you can use the `.exe` version of the scrip
 5. Run the `ereddicator.exe` file by double-clicking it. You may see `Windows protected your PC`. Just click on `More Info` and then click `Run anyway`. 
 6. A terminal will open. Do not close it and make sure it stays open when you use Ereddicator.
 7. A GUI window will also open. Enter your Reddit API credentials into it.
-   * If you use Two-Factor Authentication, enter your 2FA code in the "Two Factor Code" field. If you don't use 2FA, leave this field as is.
-7. After you successfully authenticate, a new window opens. In this window, you can configure your preferences.
-8. Click "Start Content Removal" to begin the process.
+   * **For traditional Reddit accounts**:
+     * If you use Two-Factor Authentication, enter your 2FA code in the "Two Factor Code" field. If you don't use 2FA, leave this field as is.
+     * Enter your username, password, and API credentials
+   * **For users who use Reddit's "Login with Google"**:
+     * Select the "OAuth (Google Login)" option at the top
+     * Enter your `client_id` and `client_secret`
+     * Click "Authorise with Reddit" - this will open a browser window
+     * Log in to Reddit through Google in the browser and authorise the application
+     * Once authorised, you'll be redirected back to Ereddicator
+8. After you successfully authenticate, a new window opens. In this window, you can configure your preferences.
+9. Click "Start Content Removal" to begin the process.
 
 ## Instructions (for Python Users)
 
@@ -100,7 +109,8 @@ If you don't want to install Python, you can use the `.exe` version of the scrip
    - After creation, the client_id is the string under "personal use script". For example, it may look like this: "AE9-zURLEvI1pze_rqH4Iw".
    - The client_secret is what appears next to "secret". It will look like this: "ZeqnEO_F21BrzzgOpb_es4kOfbhTww"
 3. Create a file named `reddit_credentials.ini` in the same directory as the script.
-4. Add your Reddit API credentials to the file in the following format:
+4. Add your Reddit API credentials to the file in one of the following formats:
+   **For traditional Reddit accounts:**
    ```
    [reddit]
    client_id = YOUR_CLIENT_ID
@@ -110,10 +120,17 @@ If you don't want to install Python, you can use the `.exe` version of the scrip
    # Leave as None if you don't use two-factor authentication
    two_factor_code = None
    ```
-   If you use 2FA, replace None with your 2FA code.
+   **For Reddit accounts that use Google login:**
+   ```
+   [reddit]
+   client_id = YOUR_CLIENT_ID
+   client_secret = YOUR_CLIENT_SECRET
+   # The refresh_token will be filled in after your first login
+   ```
 5. Navigate to the `src` directory.
 6. Run the script using Python: `python main.py`.
-7. Follow the on-screen instructions in the GUI to configure your preferences and start the content removal process.
+7. If you're using Google login, you'll be prompted to authorise via a browser. After successful authorisation, the refresh token will be saved for future use.
+8. Follow the on-screen instructions in the GUI to configure your preferences and start the content removal process.
 
 ## Support Me
 Donations will help me with the development of this project.

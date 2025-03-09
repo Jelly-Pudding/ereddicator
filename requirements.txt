@@ -1,2 +1,3 @@
 praw==7.8.1
-tkcalendar==1.5.0
+tkcalendar==1.6.1
+requests==2.32.3

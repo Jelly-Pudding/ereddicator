@@ -5,6 +5,7 @@ import praw
 from prawcore.exceptions import OAuthException, ResponseException
 import tkinter as tk
 from modules.gui import CredentialsInputGUI
+from modules.oauth_handler import RedditOAuth
 
 
 class RedditAuth:
@@ -32,6 +33,8 @@ class RedditAuth:
         self.username = None
         self.password = None
         self.two_factor_code = None
+        self.refresh_token = None
+        self.use_oauth = False
 
     def _read_credentials(self) -> None:
         """
@@ -60,9 +63,26 @@ class RedditAuth:
         
         self.client_id = credentials["client id"]
         self.client_secret = credentials["client secret"]
-        self.username = credentials["username"]
-        self.password = credentials["password"]
-        self.two_factor_code = credentials.get("two factor code", "None")
+
+        if credentials.get("oauth_mode", False):
+            self.use_oauth = True
+            try:
+                print("Starting OAuth authorisation flow...")
+                oauth = RedditOAuth(
+                    client_id=self.client_id,
+                    client_secret=self.client_secret,
+                    user_agent=self.user_agent
+                )
+
+                self.username, self.refresh_token = oauth.perform_oauth_flow()
+                print(f"Successfully authenticated as {self.username} using OAuth.")
+            except Exception as e:
+                print(f"OAuth authentication failed: {e}")
+                sys.exit(1)
+        else:
+            self.username = credentials["username"]
+            self.password = credentials["password"]
+            self.two_factor_code = credentials.get("two factor code", "None")
 
     def _read_credentials_from_file(self) -> None:
         """
@@ -82,9 +102,46 @@ class RedditAuth:
 
         self.client_id = config["reddit"]["client_id"]
         self.client_secret = config["reddit"]["client_secret"]
-        self.username = config["reddit"]["username"]
-        self.password = config["reddit"]["password"]
-        self.two_factor_code = config["reddit"].get("two_factor_code", "None")
+
+        # Check if we have a refresh token or plan to use OAuth
+        if "refresh_token" in config["reddit"]:
+            self.refresh_token = config["reddit"]["refresh_token"]
+            self.use_oauth = True
+            # Username might be stored if we've authenticated before
+            if "username" in config["reddit"]:
+                self.username = config["reddit"]["username"]
+                print(f"Using stored refresh token for {self.username}")
+            else:
+                print("Refresh token found, will fetch username during authentication")
+        # Check for OAuth mode without refresh token (first-time setup)
+        elif "username" not in config["reddit"] and "password" not in config["reddit"]:
+            print("OAuth mode detected (no username/password provided)")
+            self.use_oauth = True
+            try:
+                print("Starting OAuth authorization flow...")
+                oauth = RedditOAuth(
+                    client_id=self.client_id,
+                    client_secret=self.client_secret,
+                    user_agent=self.user_agent
+                )
+                self.username, self.refresh_token = oauth.perform_oauth_flow()
+
+                # Save the refresh token for future use
+                config["reddit"]["username"] = self.username
+                config["reddit"]["refresh_token"] = self.refresh_token
+                with open(self.file_path, "w") as f:
+                    config.write(f)
+
+                print(f"Successfully authenticated as {self.username}")
+                print(f"Refresh token saved to {self.file_path}")
+            except Exception as e:
+                print(f"OAuth authentication failed: {e}")
+                sys.exit(1)
+        else:
+            # Traditional username/password authentication
+            self.username = config["reddit"]["username"]
+            self.password = config["reddit"]["password"]
+            self.two_factor_code = config["reddit"].get("two_factor_code", "None")
 
     def get_reddit_instance(self) -> praw.Reddit:
         """
@@ -103,37 +160,65 @@ class RedditAuth:
             ResponseException: If there's an issue with the Reddit API response.
         """
         try:
-            if not all([self.client_id, self.client_secret, self.username, self.password]):
+            if not (self.client_id and self.client_secret and (self.username or self.refresh_token)):
                 self._read_credentials()
             
             print("Retrieving Reddit Authentication instance...")
 
-            # Clean up the two-factor code if it's present.
-            if self.two_factor_code:
-                self.two_factor_code = self.two_factor_code.replace(" ", "")
+            if self.use_oauth and self.refresh_token:
+                reddit = praw.Reddit(
+                    client_id=self.client_id,
+                    client_secret=self.client_secret,
+                    refresh_token=self.refresh_token,
+                    user_agent=self.user_agent
+                )
+                # If username wasn't provided, get it from the API
+                if not self.username:
+                    self.username = reddit.user.me().name
+                    print(f"Successfully authenticated as {self.username} using OAuth.")
+                # Only show success message if not already shown in prompt_credentials
+                elif not self.is_exe:
+                    print(f"Successfully authenticated as {self.username} using OAuth.")
+            else:
+                # Clean up the two-factor code if it's present.
+                if self.two_factor_code:
+                    self.two_factor_code = self.two_factor_code.replace(" ", "")
 
-            # Combine password and 2FA code if it's present.
-            password = (f"{self.password}:{self.two_factor_code}"
-                        if self.two_factor_code and self.two_factor_code.lower() != "none"
-                        else self.password)
+                # Combine password and 2FA code if it's present.
+                password = (f"{self.password}:{self.two_factor_code}"
+                            if self.two_factor_code and self.two_factor_code.lower() != "none"
+                            else self.password)
 
-            reddit = praw.Reddit(
-                client_id=self.client_id,
-                client_secret=self.client_secret,
-                username=self.username,
-                password=password,
-                user_agent=self.user_agent
-            )
-            reddit.user.me()  # Won't throw exceptions if authentication succeeded.
-            print("Successfully authenticated.")
+                reddit = praw.Reddit(
+                    client_id=self.client_id,
+                    client_secret=self.client_secret,
+                    username=self.username,
+                    password=password,
+                    user_agent=self.user_agent
+                )
+                print(f"Successfully authenticated as {self.username}.")
+
+            # Verify authentication worked
+            reddit.user.me()
+
             return reddit
+
         except FileNotFoundError:
             print(f"Please create a file named '{self.file_path}' in the same directory "
-                  "as main.py with the following format:\n"
-                  "[reddit]\nclient_id = YOUR-CLIENT-ID\nclient_secret = YOUR-CLIENT-SECRET\n"
-                  "username = YOUR-USERNAME\npassword = YOUR-PASSWORD\n"
+                  "as main.py with one of the following formats:\n\n"
+                  "For traditional Reddit accounts:\n"
+                  "[reddit]\n"
+                  "client_id = YOUR_CLIENT_ID\n"
+                  "client_secret = YOUR_CLIENT_SECRET\n"
+                  "username = YOUR_USERNAME\n"
+                  "password = YOUR_PASSWORD\n"
                   "# Leave as None if you don't use two-factor authentication\n"
-                  "two_factor_code = None")
+                  "two_factor_code = None\n\n"
+                  "For Reddit accounts that use Google login (or other OAuth methods):\n"
+                  "[reddit]\n"
+                  "client_id = YOUR_CLIENT_ID\n"
+                  "client_secret = YOUR_CLIENT_SECRET\n"
+                  "# The refresh_token will be filled in automatically after your first login")
             sys.exit(1)
         except (OAuthException, ResponseException) as e:
             print("Failed to authenticate with Reddit. Please check your credentials.")
