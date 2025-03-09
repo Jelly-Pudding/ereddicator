@@ -25,6 +25,8 @@ class CredentialsInputGUI:
         self.credential_entries = {}
         self.show_password = tk.BooleanVar(value=False)
         self.submitted_credentials = None
+        self.oauth_mode = tk.BooleanVar(value=False)
+        self.refresh_token = None
         self.create_widgets()
         self.center_window()
 
@@ -51,31 +53,73 @@ class CredentialsInputGUI:
         main_frame = tk.Frame(self.master, bg="#2b2b2b")
         main_frame.pack(padx=10, pady=10)
 
+        oauth_frame = tk.Frame(main_frame, bg="#2b2b2b")
+        oauth_frame.grid(row=0, column=0, columnspan=3, pady=(0, 10), sticky="ew")
+
+        tk.Label(oauth_frame, text="Authentication Method:", bg="#2b2b2b", fg="#ffffff").pack(side=tk.LEFT, padx=(0, 10))
+
+        password_radio = tk.Radiobutton(oauth_frame, text="Username/Password", variable=self.oauth_mode,
+                                       value=False, command=self.toggle_auth_mode,
+                                       bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b")
+        password_radio.pack(side=tk.LEFT, padx=(0, 10))
+ 
+        oauth_radio = tk.Radiobutton(oauth_frame, text="OAuth (Google Login)", variable=self.oauth_mode,
+                                    value=True, command=self.toggle_auth_mode,
+                                    bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b")
+        oauth_radio.pack(side=tk.LEFT)
+
         fields = ["Client ID", "Client Secret", "Username", "Password", "Two Factor Code"]
 
         for i, field in enumerate(fields):
             label = tk.Label(main_frame, text=field + ":", bg="#2b2b2b", fg="#ffffff")
-            label.grid(row=i, column=0, padx=(0, 10), pady=5, sticky='e')
+            label.grid(row=i+1, column=0, padx=(0, 10), pady=5, sticky='e')
 
             entry = tk.Entry(main_frame, bg="#3c3c3c", fg="#ffffff", width=30)
-            entry.grid(row=i, column=1, pady=5, sticky="ew")
+            entry.grid(row=i+1, column=1, pady=5, sticky="ew")
 
             if field == "Password":
                 entry.config(show="*")
                 show_password_cb = tk.Checkbutton(main_frame, text="Show", variable=self.show_password,
                                                   command=lambda e=entry: self.toggle_password_visibility(e),
                                                   bg="#2b2b2b", fg="#ffffff", selectcolor="#2b2b2b")
-                show_password_cb.grid(row=i, column=2, padx=(5, 0))
+                show_password_cb.grid(row=i+1, column=2, padx=(5, 0))
 
             if field == "Two Factor Code":
                 entry.insert(0, "Only change me if you use 2FA")
 
             self.credential_entries[field.lower()] = entry
 
-        submit_button = tk.Button(main_frame, text="Submit", command=self.submit, bg="#ffffff", fg="#000000")
-        submit_button.grid(row=len(fields), column=0, columnspan=3, pady=(10, 0))
+        # Button frame
+        button_frame = tk.Frame(main_frame, bg="#2b2b2b")
+        button_frame.grid(row=len(fields)+1, column=0, columnspan=3, pady=(10, 0))
+
+        self.submit_button = tk.Button(button_frame, text="Submit", command=self.submit, bg="#ffffff", fg="#000000")
+        self.submit_button.pack(side=tk.LEFT, padx=(0, 5))
+
+        self.oauth_button = tk.Button(button_frame, text="Authorise with Reddit", command=self.start_oauth_flow, bg="#ffffff", fg="#000000")
+        self.oauth_button.pack(side=tk.LEFT)
+        self.oauth_button.config(state=tk.DISABLED)  # Initially disabled
 
         main_frame.grid_columnconfigure(1, weight=1)
+
+    def toggle_auth_mode(self) -> None:
+        """
+        Toggle between password and OAuth authentication modes.
+        """
+        is_oauth = self.oauth_mode.get()
+
+        # Enable/disable fields based on the selected mode
+        for field in ["username", "password", "two factor code"]:
+            state = tk.DISABLED if is_oauth else tk.NORMAL
+            self.credential_entries[field].config(state=state)
+
+        # Update buttons visibility
+        if is_oauth:
+            self.submit_button.config(state=tk.DISABLED)
+            self.oauth_button.config(state=tk.NORMAL)
+        else:
+            self.submit_button.config(state=tk.NORMAL)
+            self.oauth_button.config(state=tk.DISABLED)
 
     def toggle_password_visibility(self, entry: tk.Entry) -> None:
         """
@@ -103,17 +147,34 @@ class CredentialsInputGUI:
         self.submitted_credentials = credentials
         self.master.quit()
 
-    def get_credentials(self) -> Dict[str, str]:
+    def start_oauth_flow(self) -> None:
         """
-        Retrieve the credentials entered by the user.
+        Start the OAuth authorisation flow.
+        """
+        client_id = self.credential_entries["client id"].get().strip()
+        client_secret = self.credential_entries["client secret"].get().strip()
+
+        if not client_id or not client_secret:
+            messagebox.showerror("Error", "Client ID and Client Secret are required for OAuth authentication")
+            return
+
+        # Store credentials temporarily and close this window
+        self.submitted_credentials = {
+            "client id": client_id,
+            "client secret": client_secret,
+            "oauth_mode": True
+        }
+        self.master.quit()
+
+    def get_credentials(self) -> dict:
+        """
+        Get the entered credentials.
 
         Returns:
-            Dict[str, str]: A dictionary containing the user's credentials with keys
-                            'client id', 'client secret', 'username', 'password',
-                            and 'two factor code'.
+            dict: A dictionary containing the entered credentials.
         """
         self.master.mainloop()
-        return self.submitted_credentials
+        return self.submitted_credentials if self.submitted_credentials else {}
 
 
 class RedditContentRemoverGUI:
