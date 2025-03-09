@@ -73,7 +73,7 @@ If you don't want to install Python, you can use the `.exe` version of the scrip
 7. A GUI window will also open. Enter your Reddit API credentials into it.
    * **For traditional Reddit accounts**:
      * If you use Two-Factor Authentication, enter your 2FA code in the "Two Factor Code" field. If you don't use 2FA, leave this field as is.
-     * Enter your username, password, and API credentials
+     * Enter your client_id, client_secret, username, and password.
    * **For users who use Reddit's "Login with Google"**:
      * Select the "OAuth (Google Login)" option at the top
      * Enter your `client_id` and `client_secret`
