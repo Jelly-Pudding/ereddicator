@@ -81,7 +81,7 @@ If you don't want to install Python, you can use the `.exe` version of the scrip
      * Log in to Reddit through Google in the browser and authorise the application
      * Once authorised, you'll be redirected back to Ereddicator
 8. After you successfully authenticate, a new window opens. In this window, you can configure your preferences.
-9. Click "Start Content Removal" to begin the process.
+9. Click "Start Content Removal" to begin the process. If you cannot see this button, then try to resize the window to make it bigger.
 
 ## Instructions (for Python Users)
 
