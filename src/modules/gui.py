@@ -194,11 +194,14 @@ class RedditContentRemoverGUI:
         self.start_removal_callback = start_removal_callback
         master.title("Ereddicator")
         master.configure(bg="#2b2b2b")
-        master.resizable(False, False)
+        master.resizable(True, True)
 
         self.preferences = UserPreferences()
         self.create_widgets()
         self.centre_window()
+
+        self.master.update_idletasks()
+        self.master.minsize(600, 500)
 
     def centre_window(self):
         """
@@ -578,8 +581,8 @@ class RedditContentRemoverGUI:
 
         # Removal button
         self.start_button = tk.Button(main_frame, text="Start Content Removal", command=self.start_removal,
-                                    bg="#ffffff", fg="#000000", font=("Arial", 14))
-        self.start_button.pack(pady=(20, 20))
+                                    bg="#ffffff", fg="#000000", font=("Arial", 14, "bold"))
+        self.start_button.pack(pady=(20, 20), fill="x")
 
     def create_tooltip(self, widget: tk.Widget, text: str, max_width: int = 50) -> None:
         """
