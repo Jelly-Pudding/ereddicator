@@ -97,11 +97,12 @@ class RedditAuth:
         if not os.path.exists(self.file_path):
             raise FileNotFoundError(f"Credentials file not found: {self.file_path}")
 
-        config = configparser.ConfigParser()
-        config.read(self.file_path)
+        config = configparser.ConfigParser(interpolation=None)
+        with open(self.file_path, "r", encoding="utf-8") as file:
+            config.read_file(file)
 
-        self.client_id = config["reddit"]["client_id"]
-        self.client_secret = config["reddit"]["client_secret"]
+        self.client_id = config["reddit"]["client_id"].strip()
+        self.client_secret = config["reddit"]["client_secret"].strip()
 
         # Check if we have a refresh token or plan to use OAuth
         if "refresh_token" in config["reddit"]:
@@ -139,9 +140,12 @@ class RedditAuth:
                 sys.exit(1)
         else:
             # Traditional username/password authentication
-            self.username = config["reddit"]["username"]
-            self.password = config["reddit"]["password"]
-            self.two_factor_code = config["reddit"].get("two_factor_code", "None")
+            self.username = config["reddit"]["username"].strip()
+            self.password = config["reddit"]["password"].strip()
+            if "two_factor_code" in config["reddit"]:
+                self.two_factor_code = config["reddit"]["two_factor_code"].strip()
+            else:
+                self.two_factor_code = "None"
 
     def get_reddit_instance(self) -> praw.Reddit:
         """
@@ -180,14 +184,11 @@ class RedditAuth:
                 elif not self.is_exe:
                     print(f"Successfully authenticated as {self.username} using OAuth.")
             else:
-                # Clean up the two-factor code if it's present.
-                if self.two_factor_code:
+                if self.two_factor_code and self.two_factor_code != "None":
                     self.two_factor_code = self.two_factor_code.replace(" ", "")
-
-                # Combine password and 2FA code if it's present.
-                password = (f"{self.password}:{self.two_factor_code}"
-                            if self.two_factor_code and self.two_factor_code.lower() != "none"
-                            else self.password)
+                    password = f"{self.password}:{self.two_factor_code}"
+                else:
+                    password = self.password
 
                 reddit = praw.Reddit(
                     client_id=self.client_id,
