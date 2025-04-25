@@ -387,6 +387,8 @@ class RedditContentRemoverGUI:
         other_left.pack(side="left", fill="y", expand=True, padx=(0, 5))
         other_right = tk.Frame(other_frame, bg="#2b2b2b")
         other_right.pack(side="right", fill="y", expand=True, padx=(5, 0))
+
+        # Saved and Hidden
         self.content_vars["saved"] = tk.BooleanVar(value=True)
         self.content_vars["hidden"] = tk.BooleanVar(value=True)
         tk.Checkbutton(other_left, text="Delete saved", variable=self.content_vars["saved"],
@@ -415,11 +417,13 @@ class RedditContentRemoverGUI:
                                 bg="#2b2b2b", fg="#ffffff", font=("Arial", 13))
         misc_frame.pack(fill="x", pady=content_padding_y, padx=content_padding_x)
 
-        # Preserve Gilded and Distinguished
+        # Create two columns for miscellaneous options
         misc_left = tk.Frame(misc_frame, bg="#2b2b2b")
         misc_left.pack(side="left", fill="y", expand=True, padx=(0, 5))
         misc_right = tk.Frame(misc_frame, bg="#2b2b2b")
         misc_right.pack(side="right", fill="y", expand=True, padx=(5, 0))
+
+        # Preserve Gilded and Distinguished
         self.preserve_vars["gilded"] = tk.BooleanVar(value=False)
         self.preserve_vars["distinguished"] = tk.BooleanVar(value=False)
         tk.Checkbutton(misc_left, text="Preserve gilded", variable=self.preserve_vars["gilded"],

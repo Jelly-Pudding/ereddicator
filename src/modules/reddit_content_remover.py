@@ -563,7 +563,7 @@ class RedditContentRemover:
 
     def get_content_from_csv(
         self, filename: str, karma_threshold: Optional[int] = None,
-        max_retries: int = 5 # Add max_retries parameter
+        max_retries: int = 5
     ) -> Set[Union[praw.models.Comment, praw.models.Submission]]:
         """
         Read content IDs from a Reddit data export CSV file and return filtered Reddit objects.
