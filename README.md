@@ -10,7 +10,7 @@ This Python script allows you to edit and/or delete all your Reddit comments, po
 - [Instructions (for Python Users)](#instructions-for-python-users)
   - [Installation](#installation)
   - [Instructions](#instructions)
-- [Support Me](#support-me)
+- [Support Me](#buy-me-a-coffee)
 
 ## Features
 
