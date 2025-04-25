@@ -3,12 +3,13 @@ import string
 import time
 import os
 import csv
+import re
 from typing import Dict, List, Set, Union, Callable, Tuple, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 import praw
 from prawcore import ResponseException
-from prawcore.exceptions import Forbidden
+from prawcore.exceptions import Forbidden, NotFound
 from modules.user_preferences import UserPreferences
 
 class RedditContentRemover:
@@ -46,6 +47,50 @@ class RedditContentRemover:
             "This text was replaced using Ereddicator."
         ]
 
+    @staticmethod
+    def parse_ratelimit_time(error_message: str) -> Optional[float]:
+        """
+        Parse the rate limit time from a Reddit API exception message.
+
+        Args:
+            error_message (str): The error message string from Reddit.
+
+        Returns:
+            Optional[float]: The required wait time in seconds, or None if not found.
+        """
+        # Primary pattern: "Take a break for X seconds"
+        match = re.search(r"take a break for (\d+)\s+seconds?", error_message, re.IGNORECASE)
+        if match:
+            return float(match.group(1))
+
+        # Fallback pattern: "Try again in X minutes"
+        match = re.search(r"try again in (\d+)\s+minutes?", error_message, re.IGNORECASE)
+        if match:
+            return float(match.group(1)) * 60.0
+
+        # Fallback pattern: "Try again in X seconds" (just in case)
+        match = re.search(r"try again in (\d+)\s+seconds?", error_message, re.IGNORECASE)
+        if match:
+            return float(match.group(1))
+
+        return None
+
+    @staticmethod
+    def generate_random_text() -> str:
+        """
+        Generates a random string of text.
+
+        Returns:
+            str: A randomly generated string of words.
+        """
+        words = []
+        num_words = random.randint(2, 17)
+        for _ in range(num_words):
+            word_length = random.randint(3, 12)
+            word = "".join(random.choices(string.ascii_lowercase, k=word_length))
+            words.append(word)
+        return " ".join(words)
+
     def load_processed_ids(self) -> set:
         """
         Load the set of processed item IDs from a file.
@@ -79,22 +124,6 @@ class RedditContentRemover:
         except Exception as e:
             print(f"Error saving processed IDs: {e}")
 
-    @staticmethod
-    def generate_random_text() -> str:
-        """
-        Generates a random string of text.
-
-        Returns:
-            str: A randomly generated string of words.
-        """
-        words = []
-        num_words = random.randint(2, 17)
-        for _ in range(num_words):
-            word_length = random.randint(3, 12)
-            word = "".join(random.choices(string.ascii_lowercase, k=word_length))
-            words.append(word)
-        return " ".join(words)
-
     def get_replacement_text(self) -> str:
         """
         Determines the text to replace the original content.
@@ -105,36 +134,68 @@ class RedditContentRemover:
         Returns:
             str: The text to use for replacement.
         """
-        if self.preferences.advertise_ereddicator and random.random() < 0.5:
+        if self.preferences.advertise_ereddicator and random.random() <= 0.5:
             return random.choice(self.ad_messages)
         if self.preferences.custom_replacement_text:
             return self.preferences.custom_replacement_text
         return self.generate_random_text()
 
+    def _handle_ratelimit_sleep(self, exception: Exception, attempt: int, max_retries: int, context: str = "operation") -> bool:
+        """Handles sleep logic for rate limits and other retryable API errors.
+
+        Args:
+            exception (Exception): The caught exception.
+            attempt (int): The current retry attempt number (0-indexed).
+            max_retries (int): The maximum number of retries allowed.
+            context (str): A string describing the operation being attempted (for logging).
+
+        Returns:
+            bool: True if a retry should be attempted, False otherwise (max retries reached, interrupt, non-retryable error).
+        """
+        if attempt >= max_retries - 1:
+            print(f"Failed {context} after {max_retries} attempts due to persistent error: {exception}")
+            return False
+
+        sleep_time = 0
+        retry_message_prefix = "API Error"
+
+        if isinstance(exception, praw.exceptions.RedditAPIException):
+            error_str = str(exception)
+            ratelimit_sleep = self.parse_ratelimit_time(error_str)
+            retry_message_prefix = f"Reddit API Exception during {context}"
+
+            if ratelimit_sleep is not None:
+                sleep_time = ratelimit_sleep + 0.5
+                retry_message = f"Respecting API rate limit. Retrying in {sleep_time:.2f} seconds..."
+            else:
+                sleep_time = (2 ** attempt) + (random.randint(0, 1000) / 1000)
+                retry_message = f"Rate limit likely (could not parse time). Retrying in {sleep_time:.2f} seconds..."
+        else:
+             sleep_time = (2 ** attempt) + (random.randint(0, 1000) / 1000)
+             retry_message = f"Retrying in {sleep_time:.2f} seconds..."
+             retry_message_prefix = f"Error during {context}"
+
+        print(f"{retry_message_prefix}: {exception}")
+        print(f"{retry_message} (Attempt {attempt + 1}/{max_retries})")
+
+        # Interruptible sleep
+        sleep_until = time.time() + sleep_time
+        while time.time() < sleep_until:
+            if self.interrupt_flag:
+                print(f"Interrupt received during wait for {context}.")
+                return False
+            time.sleep(min(0.1, max(0, sleep_until - time.time())))
+
+        return True
+
     def get_item_info(
         self, item: Union[praw.models.Comment, praw.models.Submission],
         item_type: str, max_retries: int = 5
     ) -> Tuple[str, Optional[Union[praw.models.Comment, praw.models.Submission]]]:
-        """
-        Get a string representation of the item for logging purposes and return the refreshed item if successful.
-
-        Args:
-            item (Union[praw.models.Comment, praw.models.Submission]): The Reddit item.
-            item_type (str): The type of the item.
-            max_retries (int): Maximum number of retry attempts for rate limit handling.
-
-        Returns:
-            Tuple[str, Optional[Union[praw.models.Comment, praw.models.Submission]]]: 
-                A tuple containing:
-                - A string representation of the item (includes error info if something went wrong)
-                - The refreshed item if successful, None if the item couldn't be refreshed
-        """
+        """Get item info, with retries for API errors."""
         for attempt in range(max_retries):
             try:
-                # Force fetch the data first to trigger any potential 403s.
-                # Note: _fetch() updates the item in place.
                 _ = item._fetch()
-
                 if isinstance(item, praw.models.Comment):
                     return (
                         f"Comment '{item.body[:25]}"
@@ -154,63 +215,49 @@ class RedditContentRemover:
                     item
                 )
             except Forbidden:
-                return(
-                    f"Access Forbidden (403) whilst accessing {item_type[:-1]} properties. "
-                    f"ID: {getattr(item, 'id', 'N/A')}. This is likely because the item is in a subreddit "
-                    f"which is private or banned... Skipping item.", None
-                )
+                 return (
+                     f"Access Forbidden (403) whilst accessing {item_type[:-1]} properties. "
+                     f"ID: {getattr(item, 'id', 'N/A')}. Skipping item.", None
+                 )
+            except NotFound:
+                 return (
+                     f"Not Found (404) whilst accessing {item_type[:-1]} properties. "
+                     f"ID: {getattr(item, 'id', 'N/A')}. Skipping item.", None
+                 )
             except AttributeError:
-                return f"{item_type.capitalize()} item (ID: {getattr(item, 'id', 'N/A')}) - Attribute error... Skipping item", None
+                 return f"{item_type.capitalize()} item (ID: {getattr(item, 'id', 'N/A')}) - Attribute error... Skipping item", None
             except ResponseException as e:
-                return f"Encountered an HTTP error whilst getting item info: {e}... Skipping item", None
+                 return f"Encountered an HTTP error whilst getting item info: {e}... Skipping item", None
             except praw.exceptions.RedditAPIException as e:
-                if attempt < max_retries - 1:
-                    sleep_time = (2 ** attempt) + (random.randint(0, 1000) / 1000)
-                    print(
-                        f"Encountered a Reddit API Exception whilst getting item info. "
-                        f"Probably hit the rate limit: {e}. "
-                        f"Retrying in {sleep_time:.2f} seconds... "
-                        f"(Attempt {attempt + 1}/{max_retries})"
-                    )
-                    time.sleep(sleep_time)
-                else:
-                    return (
-                        f"API error has persisted after {max_retries} attempts when trying to access "
-                        f"{item_type.capitalize()} (ID: {getattr(item, 'id', 'N/A')})... Skipping item.",
-                        None
-                    )
+                 context = f"getting info for {item_type} (ID: {getattr(item, 'id', 'N/A')})"
+                 should_retry = self._handle_ratelimit_sleep(e, attempt, max_retries, context)
+                 if not should_retry:
+                     return (
+                         f"API error persisted after {max_retries} attempts when trying to access "
+                         f"{item_type.capitalize()} (ID: {getattr(item, 'id', 'N/A')})... Skipping item.",
+                         None
+                     )
             except Exception as e:
-                if "no data returned" in str(e).lower():
-                    return(
-                        f"Cannot access the {item_type[:-1]} item with id {item.id} as it is "
-                        "likely in a subreddit that is either private or banned... Skipping item", None
-                    )
-                return (
-                   f"Unexpected error occurred when trying to access the "
-                   f"{item_type.capitalize()} (ID: {getattr(item, 'id', 'N/A')}): {str(e)}... Skipping item.",
-                   None
-               )
+                 if "no data returned" in str(e).lower():
+                     return(
+                         f"Cannot access the {item_type[:-1]} item with id {getattr(item, 'id', 'N/A')} as it is "
+                         "likely deleted, private or banned... Skipping item", None
+                     )
+                 return (
+                    f"Unexpected error occurred when trying to access the "
+                    f"{item_type.capitalize()} (ID: {getattr(item, 'id', 'N/A')}): {str(e)}... Skipping item.",
+                    None
+                )
+        return (f"Failed to get item info for {item_type} ID {getattr(item, 'id', 'N/A')} after {max_retries} attempts.", None)
 
     def edit_item_multiple_times(self, item: Union[praw.models.Comment, praw.models.Submission],
                                  item_type: str, item_info: str, edit_count: int = 3, max_retries: int = 5) -> bool:
-        """
-        Edit a Reddit item (comment or post) multiple times before deletion, with retry mechanism.
-
-        Args:
-            item (Union[praw.models.Comment, praw.models.Submission]): The item to edit.
-            item_type (str): The type of item ('comments' or 'posts').
-            item_info (str): Pre-computed string representation of the item for logging.
-            edit_count (int): The number of times to edit the item. Defaults to 3.
-            max_retries (int): Maximum number of retry attempts for each edit. Defaults to 5.
-
-        Returns:
-            bool: True if at least one edit was successful, False otherwise.
-        """
+        """Edit item, using _handle_ratelimit_sleep for retries."""
         successfully_edited = False
         for i in range(edit_count):
-            if self.interrupt_flag:
-                break
+            if self.interrupt_flag: break
             replacement_text = self.get_replacement_text()
+
             for attempt in range(max_retries):
                 try:
                     text_type = (
@@ -225,60 +272,50 @@ class RedditContentRemover:
                     item.edit(replacement_text)
                     successfully_edited = True
                     break
+
                 except praw.exceptions.RedditAPIException as e:
-                    if "Your post isn't accessible. Double-check it and try again." in str(e):
-                        print(f"'{item_info}' was found to be deleted. Skipping further edit attempts...")
+                    if "Your post isn't accessible." in str(e):
+                        print(f"'{item_info}' seems deleted. Skipping further edit attempts...")
                         return False
-                    if attempt < max_retries - 1:
-                        sleep_time = (2 ** attempt) + (random.randint(0, 1000) / 1000)
-                        print(f"Encountered a Reddit API Exception: {e}")
-                        print(
-                            f"Likely hit the rate limit. Retrying edit in {sleep_time:.2f} seconds... "
-                            f"(Attempt {attempt + 1}/{max_retries})"
-                        )
-                        for _ in range(int(sleep_time * 10)):
-                            if self.interrupt_flag:
-                                return successfully_edited
-                            time.sleep(0.1)
-                    else:
-                        print(f"Failed to edit {item_type[:-1]} '{item_info}' after {max_retries} attempts.")
-            time.sleep(0.8)
+
+                    context = f"editing {item_type[:-1]} '{item_info}' (Edit {i+1}/{edit_count})"
+                    should_retry = self._handle_ratelimit_sleep(e, attempt, max_retries, context)
+                    if not should_retry:
+                         print(f"Stopping edit attempts for '{item_info}' due to persistent API error or interrupt.")
+                         return successfully_edited
+                except Exception as e:
+                     print(f"Unexpected error during edit attempt {attempt + 1}/{max_retries} for '{item_info}': {e}")
+                     if attempt < max_retries - 1:
+                          time.sleep(1)
+                     else:
+                          print(f"Failed edit attempt for '{item_info}' due to unexpected error after {max_retries} tries.")
+                          return successfully_edited
+
+            if successfully_edited:
+                 time.sleep(0.8)
+            else:
+                 break
+
         return successfully_edited
 
     def process_item(self, item: Union[praw.models.Comment, praw.models.Submission],
                     item_type: str, max_retries: int = 5) -> Tuple[int, int]:
-        """
-        Process a single Reddit item (comment, post, etc.) for removal or modification.
-
-        Args:
-            item (Union[praw.models.Comment, praw.models.Submission]):
-                The Reddit item to process. Can be either a Comment or a Submission.
-            item_type (str): The type of item ('comments', 'posts', 'saved', 'upvotes', 'downvotes', 'hidden').
-            max_retries (int): Maximum number of retry attempts. Defaults to 5.
-
-        Returns:
-            Tuple[int, int]: A tuple containing (deleted_count, edited_count).
-        """
+        """Process item, using _handle_ratelimit_sleep for retries."""
         deleted_count = 0
         edited_count = 0
 
         item_info, refreshed_item = self.get_item_info(item, item_type, max_retries)
-
-        # Skip if we can't get the refreshed item.
         if refreshed_item is None:
             print(item_info)
-            return (deleted_count, edited_count)
-
+            return (0, 0)
         item = refreshed_item
 
-        # Skip already deleted or removed content...
         if (
             item_info.startswith("Comment '[deleted]'") or item_info.startswith("Comment '[removed]'")
         ):
             print(f"Skipping already deleted or removed {item_type[:-1]}: {item_info}")
             return (deleted_count, edited_count)
 
-        # Skip if it's not in the date range...
         item_date = datetime.fromtimestamp(item.created_utc)
         if not self.preferences.is_within_date_range(item_date):
             print(
@@ -288,7 +325,6 @@ class RedditContentRemover:
             )
             return (deleted_count, edited_count)
 
-        # Skip based on the Subreddit filtering...
         subreddit_name = item.subreddit.display_name if hasattr(item, "subreddit") else None
         if subreddit_name and not self.preferences.should_process_subreddit(subreddit_name):
             if self.preferences.whitelist_subreddits:
@@ -303,16 +339,16 @@ class RedditContentRemover:
                 )
             return (deleted_count, edited_count)
 
-        # Skip already processed items...
         if hasattr(item, "id"):
             if item.id in self.processed_ids:
                 print(f"Skipping already processed item with ID: {item.id}")
                 return (deleted_count, edited_count)
 
         for attempt in range(max_retries):
-            if self.interrupt_flag:
-                return (deleted_count, edited_count)
+            if self.interrupt_flag: return (deleted_count, edited_count)
+
             try:
+                action_performed = False
                 if item_type == "comments":
                     if self.preferences.delete_without_edit_comments:
                         if self.preferences.dry_run:
@@ -322,6 +358,7 @@ class RedditContentRemover:
                             print(f"Deleting comment without editing: '{item_info}'")
                             item.delete()
                             deleted_count = 1
+                            action_performed = True
                     elif self.preferences.only_edit_comments:
                         if self.preferences.dry_run:
                             print(f"[DRY RUN] Would edit comment: '{item_info}'")
@@ -329,6 +366,7 @@ class RedditContentRemover:
                         else:
                             if self.edit_item_multiple_times(item, item_type, item_info):
                                 edited_count = 1
+                                action_performed = True
                     else:
                         if self.preferences.dry_run:
                             print(f"[DRY RUN] Would edit and delete comment: '{item_info}'")
@@ -338,8 +376,7 @@ class RedditContentRemover:
                                 print(f"Deleting comment: '{item_info}'")
                                 item.delete()
                                 deleted_count = 1
-                            else:
-                                print(f"Not deleting comment due to a failure to edit it: '{item_info}'")
+                                action_performed = True
 
                 elif item_type == "posts":
                     if item.is_self:
@@ -358,6 +395,7 @@ class RedditContentRemover:
                             else:
                                 if self.edit_item_multiple_times(item, item_type, item_info):
                                     edited_count = 1
+                                action_performed = True
                         else:
                             if self.preferences.dry_run:
                                 print(f"[DRY RUN] Would edit and delete text post: '{item_info}'")
@@ -367,8 +405,7 @@ class RedditContentRemover:
                                     print(f"Deleting text post: '{item_info}'")
                                     item.delete()
                                     deleted_count = 1
-                                else:
-                                    print(f"Not deleting text post due to a failure to edit it: '{item_info}'")
+                                    action_performed = True
                     else:
                         if not self.preferences.delete_without_edit_posts:
                             print(f"It is impossible to edit content of 'Link {item_info}'.")
@@ -379,6 +416,8 @@ class RedditContentRemover:
                                 print(f"Deleting link post: '{item_info}'")
                                 item.delete()
                             deleted_count = 1
+                            action_performed = True
+
                 elif item_type == "saved":
                     if self.preferences.dry_run:
                         print(f"[DRY RUN] Would unsave item: {item_info}")
@@ -386,14 +425,15 @@ class RedditContentRemover:
                         print(f"Unsaving item: {item_info}")
                         item.unsave()
                     deleted_count = 1
+                    action_performed = True
                 elif item_type in ["upvotes", "downvotes"]:
                     if self.preferences.dry_run:
                         print(f"[DRY RUN] Would clear {item_type[:-1]} on item: {item_info}")
                     else:
                         print(f"Attempting to clear {item_type[:-1]} on item: {item_info}")
                         item.clear_vote()
-                        print(f"Successfully cleared {item_type[:-1]} on item: {item_info}")
-                    deleted_count = 1
+                        deleted_count = 1
+                        action_performed = True
                 elif item_type == "hidden":
                     if self.preferences.dry_run:
                         print(f"[DRY RUN] Would unhide post: {item_info}")
@@ -401,32 +441,27 @@ class RedditContentRemover:
                         print(f"Unhiding post: {item_info}")
                         item.unhide()
                     deleted_count = 1
+                    action_performed = True
 
-                if hasattr(item, "id"):
-                    self.processed_ids.add(item.id)
-
-                return (deleted_count, edited_count)
+                if action_performed:
+                    if hasattr(item, "id"):
+                        self.processed_ids.add(item.id)
+                    return (deleted_count, edited_count)
 
             except (praw.exceptions.RedditAPIException, ResponseException) as e:
                 if isinstance(e, ResponseException) and e.response.status_code == 400:
-                    print(
-                        "Encountered a 400 HTTP error. Skipping as this is likely "
-                        "due to trying to upvote/downvote an archived submission. "
-                        "Note: You can disable the option to make your votes public "
-                        "in Reddit's settings."
-                    )
+                     return (deleted_count, edited_count)
+
+                context = f"performing action on {item_type} '{item_info}'"
+                should_retry = self._handle_ratelimit_sleep(e, attempt, max_retries, context)
+                if not should_retry:
                     return (deleted_count, edited_count)
-                if isinstance(e, praw.exceptions.RedditAPIException):
-                    print(f"Encountered a Reddit API Exception. Probably hit the rate limit: {e}")
-                if attempt < max_retries - 1:
-                    sleep_time = (2 ** attempt) + (random.randint(0, 1000) / 1000)
-                    print(f"\nAttempt {attempt + 1} failed. Retrying in {sleep_time:.2f} seconds...")
-                    for _ in range(int(sleep_time * 10)):
-                        if self.interrupt_flag:
-                            return (deleted_count, edited_count)
-                        time.sleep(0.1)
-                else:
-                    print(f"Failed to process {item_type} after {max_retries} attempts.")
+
+            except Exception as e:
+                 print(f"Unexpected error during action for {item_type} '{item_info}': {e}")
+                 break
+
+        print(f"Failed to process {item_type} '{item_info}' after {max_retries} attempts or due to unexpected error.")
         return (deleted_count, edited_count)
 
     def process_batch(self, items: List[Union[praw.models.Comment, praw.models.Submission]],
@@ -527,7 +562,8 @@ class RedditContentRemover:
         return total_deleted, total_edited
 
     def get_content_from_csv(
-        self, filename: str, karma_threshold: Optional[int] = None
+        self, filename: str, karma_threshold: Optional[int] = None,
+        max_retries: int = 5 # Add max_retries parameter
     ) -> Set[Union[praw.models.Comment, praw.models.Submission]]:
         """
         Read content IDs from a Reddit data export CSV file and return filtered Reddit objects.
@@ -536,6 +572,7 @@ class RedditContentRemover:
             filename (str): Name of the CSV file (must be either "comments.csv" or "posts.csv")
             karma_threshold (Optional[int]): If set, only include items with karma below this threshold.
                 Defaults to None.
+            max_retries (int): Maximum number of retry attempts for rate limit handling.
 
         Returns:
             Set[Union[praw.models.Comment, praw.models.Submission]]: 
@@ -551,68 +588,118 @@ class RedditContentRemover:
             raise FileNotFoundError(f"File not found: {filepath}")
 
         print(f"Loading {filename}...")
-        already_deleted_count = 0
-        filtered_count = 0
-        failed_count = 0
-        date_filtered_count = 0
-
+        rows = []
         try:
             with open(filepath, "r", encoding="utf-8") as f:
                 reader = csv.DictReader(f)
                 required_columns = {"id", "body", "date"}
                 if not required_columns.issubset(reader.fieldnames):
-                    raise KeyError(f"Required columns {required_columns} not found in {filename}")
-
-                for row in reader:
-                    try:
-                        if row["body"] == "[removed]":
-                            already_deleted_count += 1
-                            filtered_count += 1
-                            continue
-
-                        try:
-                            created_date = datetime.strptime(row["date"], "%Y-%m-%d %H:%M:%S UTC")
-                            if not self.preferences.is_within_date_range(created_date):
-                                filtered_count += 1
-                                date_filtered_count += 1
-                                continue
-                        except ValueError:
-                            print(f"Invalid date value in row with ID {row['id']}")
-                            failed_count += 1
-                            continue
-
-                        if filename == "comments.csv":
-                            item = self.reddit.comment(id=row["id"])
-                        elif filename == "posts.csv":
-                            item = self.reddit.submission(id=row["id"])
-
-                        # Apply remaining filters
-                        if karma_threshold is not None and item.score >= karma_threshold:
-                            filtered_count += 1
-                            continue
-
-                        if self.preferences.preserve_gilded and item.gilded:
-                            filtered_count += 1
-                            continue
-
-                        if self.preferences.preserve_distinguished and item.distinguished:
-                            filtered_count += 1
-                            continue
-
-                        content.add(item)
-
-                    except Exception as e:
-                        failed_count += 1
-                        print(f"Failed to load item {row['id']}: {str(e)}")
-
-            print(f"Loaded {len(content)} items from {filename} "
-                  f"({filtered_count} filtered out, {date_filtered_count} outside date range, "
-                  f"{already_deleted_count} already deleted, {failed_count} failed to load)")
-            return content
-
+                     raise KeyError(f"Required columns {required_columns} not found in {filename}")
+                rows = list(reader)
         except Exception as e:
-            print(f"Error processing {filename}: {str(e)}")
-            raise
+             print(f"Error initially reading {filename}: {str(e)}")
+             raise
+
+        total_rows = len(rows)
+        print(f"Found {total_rows} rows in {filename}. Processing...")
+
+        already_deleted_count = 0
+        filtered_count = 0
+        failed_count = 0
+        date_filtered_count = 0
+        processed_count = 0
+
+        for i, row in enumerate(rows):
+            processed_count = i + 1
+            item_id = row.get("id", "UNKNOWN_ID")
+
+            if processed_count % 50 == 0 or processed_count == total_rows:
+                 print(f"Processing item {processed_count}/{total_rows} (ID: {item_id})...")
+
+            item = None
+            successful_load = False
+
+            for attempt in range(max_retries):
+                 if self.interrupt_flag:
+                      print("Interrupt received during CSV processing.")
+                      break
+
+                 try:
+                     if row.get("body") == "[removed]":
+                         already_deleted_count += 1
+                         filtered_count += 1
+                         successful_load = True
+                         break
+                     try:
+                         created_date = datetime.strptime(row["date"], "%Y-%m-%d %H:%M:%S UTC")
+                         if not self.preferences.is_within_date_range(created_date):
+                             filtered_count += 1
+                             date_filtered_count += 1
+                             successful_load = True
+                             break
+                     except ValueError:
+                         print(f"Invalid date value in row {processed_count}/{total_rows} (ID: {item_id})")
+                         successful_load = True
+                         break
+
+                     if filename == "comments.csv":
+                         item = self.reddit.comment(id=item_id)
+                     elif filename == "posts.csv":
+                         item = self.reddit.submission(id=item_id)
+                     else:
+                         continue
+
+                     try:
+                         if karma_threshold is not None and item.score >= karma_threshold:
+                             filtered_count += 1
+                             successful_load = True; break
+
+                         if self.preferences.preserve_gilded and item.gilded:
+                             filtered_count += 1
+                             successful_load = True; break
+
+                         if self.preferences.preserve_distinguished and item.distinguished:
+                             filtered_count += 1
+                             successful_load = True; break
+
+                         content.add(item)
+                         successful_load = True
+                         break
+
+                     except (praw.exceptions.ClientException, praw.exceptions.PRAWException, AttributeError, NotFound) as item_filter_error:
+                         error_str = str(item_filter_error).lower()
+                         if "no data returned" in error_str or "not found" in error_str or "forbidden" in error_str:
+                              if processed_count % 10 == 0:
+                                   print(f"Skipping item {item_id} (Row {processed_count}/{total_rows}): Cannot apply filters due to missing data or access issue: {item_filter_error}")
+                              successful_load = False
+                              break
+                         else:
+                              print(f"Unexpected PRAW/Attribute error filtering item {item_id} (Row {processed_count}/{total_rows}): {item_filter_error}")
+                              successful_load = False
+                              break
+
+                 except (praw.exceptions.RedditAPIException, ResponseException) as api_error:
+                      context = f"loading/filtering item {item_id} (Row {processed_count}/{total_rows})"
+                      should_retry = self._handle_ratelimit_sleep(api_error, attempt, max_retries, context)
+                      if not should_retry:
+                           successful_load = False
+                           break
+
+                 except Exception as e:
+                      print(f"General error processing row {processed_count}/{total_rows} (ID: {item_id}) during attempt {attempt+1}: {str(e)}")
+                      successful_load = False
+                      break
+
+            if self.interrupt_flag:
+                 break
+
+            if not successful_load:
+                 failed_count += 1
+
+        print(f"Finished processing {filename}.")
+        print(f"Loaded {len(content)} valid items. "
+              f"({filtered_count} filtered out [{date_filtered_count} by date, {already_deleted_count} already removed], {failed_count} failed to load/filter)")
+        return content
 
     @staticmethod
     def fetch_items(item_listing: Callable[..., praw.models.ListingGenerator],
@@ -634,7 +721,7 @@ class RedditContentRemover:
         # 'new' and 'hot' do not use 'time_filter'.
         return list(item_listing(limit=None))
 
-    def delete_all_content(self) -> Tuple[Dict[str, int], Dict[str, int]]:
+    def delete_all_content(self, max_retries_csv: int = 5) -> Tuple[Dict[str, int], Dict[str, int]]:
         """
         Delete all content for the user.
 
@@ -670,7 +757,8 @@ class RedditContentRemover:
                     )
                     items["comments"].update(self.get_content_from_csv(
                         "comments.csv",
-                        self.preferences.comment_karma_threshold
+                        self.preferences.comment_karma_threshold,
+                        max_retries=max_retries_csv
                     ))
                 if (self.preferences.delete_posts or
                     self.preferences.only_edit_posts or
@@ -681,7 +769,8 @@ class RedditContentRemover:
                     )
                     items["posts"].update(self.get_content_from_csv(
                         "posts.csv",
-                        self.preferences.post_karma_threshold
+                        self.preferences.post_karma_threshold,
+                        max_retries=max_retries_csv
                     ))
 
             # Fetch comments and posts from the API if reddit_export_directory is not set...

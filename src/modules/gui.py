@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox, filedialog
+from tkinter import messagebox, filedialog, ttk
 from typing import Dict, Callable
 from tkcalendar import DateEntry
 from datetime import datetime
@@ -200,8 +200,24 @@ class RedditContentRemoverGUI:
         self.create_widgets()
         self.centre_window()
 
-        self.master.update_idletasks()
         self.master.minsize(600, 500)
+
+        self.master.update_idletasks()
+        try:
+            content_height = self.scrollable_frame.winfo_reqheight()
+            button_height = self.button_container.winfo_reqheight()
+            total_padding = 40 + 20 + 20
+            total_req_height = content_height + button_height + total_padding
+            screen_height = self.master.winfo_screenheight()
+            max_height = int(screen_height * 0.9)
+            final_height = max(500, min(total_req_height, max_height))
+            final_width = max(600, self.master.winfo_reqwidth())
+            self.master.geometry(f"{final_width}x{final_height}")
+        except Exception as e:
+            print(f"Could not dynamically resize window, using default: {e}")
+            self.master.geometry("700x600")
+
+        self.centre_window()
 
     def centre_window(self):
         """
@@ -242,27 +258,66 @@ class RedditContentRemoverGUI:
 
     def create_widgets(self) -> None:
         """Create and arrange the widgets for the main GUI."""
-        main_frame = tk.Frame(self.master, bg="#2b2b2b")
-        main_frame.pack(padx=20, pady=20, fill=tk.BOTH, expand=True)
+
+        container = tk.Frame(self.master, bg="#2b2b2b")
+        container.pack(fill=tk.BOTH, expand=True)
+
+        canvas = tk.Canvas(container, bg="#2b2b2b", highlightthickness=0, borderwidth=0)
+
+        scrollbar = tk.Scrollbar(container, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        scrollbar.pack(side=tk.RIGHT, fill="y", padx=(0, 5), pady=5)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        self.scrollable_frame = tk.Frame(canvas, bg="#2b2b2b")
+        self.scrollable_window_id = canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+
+        def on_frame_configure(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+        self.scrollable_frame.bind("<Configure>", on_frame_configure)
+
+        def on_canvas_configure(event):
+            canvas_width = event.width
+            canvas.itemconfig(self.scrollable_window_id, width=canvas_width)
+        canvas.bind("<Configure>", on_canvas_configure)
+
+        def _on_mousewheel(event):
+            scroll_amount = 0
+            if event.num == 4:
+                scroll_amount = -1
+            elif event.num == 5:
+                scroll_amount = 1
+            elif hasattr(event, "delta") and event.delta != 0:
+                 scroll_amount = int(-1*(event.delta/120))
+
+            if scroll_amount != 0:
+                canvas.yview_scroll(scroll_amount, "units")
+
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        canvas.bind_all("<Button-4>", _on_mousewheel)
+        canvas.bind_all("<Button-5>", _on_mousewheel)
+
+        content_padding_x = 15
+        content_padding_y = 10
 
         self.content_vars = {}
         self.only_edit_vars = {}
         self.delete_without_edit_vars = {}
         self.preserve_vars = {}
 
-        checkbox_frame = tk.Frame(main_frame, bg="#2b2b2b")
-        checkbox_frame.pack(fill="x", pady=10)
+        checkbox_frame = tk.Frame(self.scrollable_frame, bg="#2b2b2b")
+        checkbox_frame.pack(fill="x", pady=content_padding_y, padx=content_padding_x)
 
         left_column = tk.Frame(checkbox_frame, bg="#2b2b2b")
-        left_column.pack(side="left", fill="y", expand=True)
+        left_column.pack(side="left", fill="y", expand=True, padx=(0, 5))
         right_column = tk.Frame(checkbox_frame, bg='#2b2b2b')
-        right_column.pack(side="right", fill="y", expand=True)
+        right_column.pack(side="right", fill="y", expand=True, padx=(5, 0))
 
         # Comments
         comment_frame = tk.LabelFrame(left_column, text="Comment Options",
                                     bg="#2b2b2b", fg="#ffffff", font=("Arial", 13))
         comment_frame.pack(anchor="w", pady=5, padx=5, fill="x")
-
         self.content_vars["comments"] = tk.BooleanVar(value=False)
         self.only_edit_vars["comments"] = tk.BooleanVar(value=True)
         self.delete_without_edit_vars["comments"] = tk.BooleanVar(value=False)
@@ -295,7 +350,6 @@ class RedditContentRemoverGUI:
         post_frame = tk.LabelFrame(right_column, text="Post Options",
                                 bg="#2b2b2b", fg="#ffffff", font=("Arial", 13))
         post_frame.pack(anchor="w", pady=5, padx=5, fill="x")
-
         self.content_vars["posts"] = tk.BooleanVar(value=False)
         self.only_edit_vars["posts"] = tk.BooleanVar(value=True)
         self.delete_without_edit_vars["posts"] = tk.BooleanVar(value=False)
@@ -325,17 +379,14 @@ class RedditContentRemoverGUI:
                     ).pack(anchor="w", pady=2)
 
         # Other content types
-        other_frame = tk.LabelFrame(main_frame, text="Other Content Options",
+        other_frame = tk.LabelFrame(self.scrollable_frame, text="Other Content Options",
                                 bg="#2b2b2b", fg="#ffffff", font=("Arial", 13))
-        other_frame.pack(fill="x", pady=10)
+        other_frame.pack(fill="x", pady=content_padding_y, padx=content_padding_x)
 
-        # Create two columns for other options
         other_left = tk.Frame(other_frame, bg="#2b2b2b")
-        other_left.pack(side="left", fill="y", expand=True)
+        other_left.pack(side="left", fill="y", expand=True, padx=(0, 5))
         other_right = tk.Frame(other_frame, bg="#2b2b2b")
-        other_right.pack(side="right", fill="y", expand=True)
-
-        # Saved and Hidden
+        other_right.pack(side="right", fill="y", expand=True, padx=(5, 0))
         self.content_vars["saved"] = tk.BooleanVar(value=True)
         self.content_vars["hidden"] = tk.BooleanVar(value=True)
         tk.Checkbutton(other_left, text="Delete saved", variable=self.content_vars["saved"],
@@ -360,17 +411,15 @@ class RedditContentRemoverGUI:
                     font=("Arial", 13)).pack(anchor="w", pady=2)
 
         # Miscellaneous options
-        misc_frame = tk.LabelFrame(main_frame, text="Miscellaneous Options",
+        misc_frame = tk.LabelFrame(self.scrollable_frame, text="Miscellaneous Options",
                                 bg="#2b2b2b", fg="#ffffff", font=("Arial", 13))
-        misc_frame.pack(fill="x", pady=10)
-
-        # Create two columns for miscellaneous options
-        misc_left = tk.Frame(misc_frame, bg="#2b2b2b")
-        misc_left.pack(side="left", fill="y", expand=True)
-        misc_right = tk.Frame(misc_frame, bg="#2b2b2b")
-        misc_right.pack(side="right", fill="y", expand=True)
+        misc_frame.pack(fill="x", pady=content_padding_y, padx=content_padding_x)
 
         # Preserve Gilded and Distinguished
+        misc_left = tk.Frame(misc_frame, bg="#2b2b2b")
+        misc_left.pack(side="left", fill="y", expand=True, padx=(0, 5))
+        misc_right = tk.Frame(misc_frame, bg="#2b2b2b")
+        misc_right.pack(side="right", fill="y", expand=True, padx=(5, 0))
         self.preserve_vars["gilded"] = tk.BooleanVar(value=False)
         self.preserve_vars["distinguished"] = tk.BooleanVar(value=False)
         tk.Checkbutton(misc_left, text="Preserve gilded", variable=self.preserve_vars["gilded"],
@@ -383,10 +432,9 @@ class RedditContentRemoverGUI:
                     font=("Arial", 13)).pack(anchor="w", pady=2)
 
         # Advertising option with question mark
+        advertise_frame = tk.Frame(self.scrollable_frame, bg="#2b2b2b")
+        advertise_frame.pack(fill="x", pady=content_padding_y, padx=content_padding_x)
         self.advertise_var = tk.BooleanVar(value=False)
-        advertise_frame = tk.Frame(main_frame, bg="#2b2b2b")
-        advertise_frame.pack(fill="x", pady=10)
-
         advertise_cb = tk.Checkbutton(advertise_frame,
                                     text="Advertise Ereddicator",
                                     variable=self.advertise_var,
@@ -397,17 +445,14 @@ class RedditContentRemoverGUI:
                                     activeforeground="#ffffff",
                                     font=("Arial", 13))
         advertise_cb.pack(side="left", pady=0)
-
-        ad_question_button = tk.Button(advertise_frame, text="?", font=("Arial", 10), bg="#3c3c3c", fg="#ffffff")
+        ad_question_button = tk.Button(advertise_frame, text="?", font=("Arial", 10), bg="#3c3c3c", fg="#ffffff", command=lambda: None, width=2, height=1, bd=1, relief="raised")
         ad_question_button.pack(side="left", padx=(5, 10))
-
         ad_tooltip_text = "Occasionally replaces content with a simple message mentioning Ereddicator when editing."
         self.create_tooltip(ad_question_button, ad_tooltip_text)
 
         # Dry Run option
-        dry_run_frame = tk.Frame(main_frame, bg="#2b2b2b")
-        dry_run_frame.pack(fill="x", pady=10)
-
+        dry_run_frame = tk.Frame(self.scrollable_frame, bg="#2b2b2b")
+        dry_run_frame.pack(fill="x", pady=content_padding_y, padx=content_padding_x)
         self.dry_run_var = tk.BooleanVar(value=False)
         dry_run_cb = tk.Checkbutton(dry_run_frame,
                                     text="Dry Run",
@@ -419,154 +464,120 @@ class RedditContentRemoverGUI:
                                     activeforeground="#ffffff",
                                     font=("Arial", 13))
         dry_run_cb.pack(side="left", pady=0)
-
-        dry_run_question_button = tk.Button(dry_run_frame, text="?", font=("Arial", 10), bg="#3c3c3c", fg="#ffffff")
+        dry_run_question_button = tk.Button(dry_run_frame, text="?", font=("Arial", 10), bg="#3c3c3c", fg="#ffffff", command=lambda: None, width=2, height=1, bd=1, relief="raised")
         dry_run_question_button.pack(side="left", padx=(5, 10))
-
         dry_run_tooltip_text = "When enabled this simulates the removal process without actually making any changes."
         self.create_tooltip(dry_run_question_button, dry_run_tooltip_text)
 
-        # Comment karma threshold with question mark
-        karma_frame = tk.Frame(main_frame, bg="#2b2b2b")
-        karma_frame.pack(fill="x", pady=10)
-
+        # Karma Threshold
+        karma_frame = tk.Frame(self.scrollable_frame, bg="#2b2b2b")
+        karma_frame.pack(fill="x", pady=content_padding_y, padx=content_padding_x)
         self.comment_label = tk.Label(karma_frame, text="Comment Karma Threshold:", bg="#2b2b2b", fg="#ffffff", font=("Arial", 13))
         self.comment_label.pack(side="left", padx=(0, 10))
         self.comment_threshold = tk.Entry(karma_frame, bg="#3c3c3c", fg="#ffffff", font=("Arial", 12), width=10, disabledbackground="#3c3c3c", disabledforeground="#ffffff")
         self.comment_threshold.pack(side="left")
         self.comment_threshold.insert(0, "*")
-
-        comment_question_button = tk.Button(karma_frame, text="?", font=("Arial", 10), bg="#3c3c3c", fg="#ffffff")
+        comment_question_button = tk.Button(karma_frame, text="?", font=("Arial", 10), bg="#3c3c3c", fg="#ffffff", command=lambda: None, width=2, height=1, bd=1, relief="raised")
         comment_question_button.pack(side="left", padx=(5, 10))
-
         comment_tooltip_text = "Use '*' to delete all comments, or enter a number to keep comments with karma greater than or equal to that number."
         self.create_tooltip(comment_question_button, comment_tooltip_text)
 
-        # Post karma threshold with question mark
-        karma_frame2 = tk.Frame(main_frame, bg="#2b2b2b")
-        karma_frame2.pack(fill="x", pady=10)
-
+        karma_frame2 = tk.Frame(self.scrollable_frame, bg="#2b2b2b")
+        karma_frame2.pack(fill="x", pady=content_padding_y, padx=content_padding_x)
         self.post_label = tk.Label(karma_frame2, text="Post Karma Threshold:", bg="#2b2b2b", fg="#ffffff", font=("Arial", 13))
         self.post_label.pack(side="left", padx=(0, 10))
         self.post_threshold = tk.Entry(karma_frame2, bg="#3c3c3c", fg="#ffffff", font=("Arial", 12), width=10, disabledbackground="#3c3c3c", disabledforeground="#ffffff")
         self.post_threshold.pack(side="left")
         self.post_threshold.insert(0, "*")
-
-        post_question_button = tk.Button(karma_frame2, text="?", font=("Arial", 10), bg="#3c3c3c", fg="#ffffff")
+        post_question_button = tk.Button(karma_frame2, text="?", font=("Arial", 10), bg="#3c3c3c", fg="#ffffff", command=lambda: None, width=2, height=1, bd=1, relief="raised")
         post_question_button.pack(side="left", padx=(5, 10))
-
         post_tooltip_text = "Use '*' to delete all posts, or enter a number to keep posts with karma greater than or equal to that number."
         self.create_tooltip(post_question_button, post_tooltip_text)
 
-        # Whitelist Subreddits input
-        whitelist_frame = tk.Frame(main_frame, bg="#2b2b2b")
-        whitelist_frame.pack(fill="x", pady=10)
-
+        # Whitelist/Blacklist
+        whitelist_frame = tk.Frame(self.scrollable_frame, bg="#2b2b2b")
+        whitelist_frame.pack(fill="x", pady=content_padding_y, padx=content_padding_x)
         whitelist_label = tk.Label(whitelist_frame, text="Whitelist Subreddits:", bg="#2b2b2b", fg="#ffffff", font=("Arial", 13))
         whitelist_label.pack(side="left", padx=(0, 10))
         self.whitelist_entry = tk.Entry(whitelist_frame, bg="#3c3c3c", fg="#ffffff", font=("Arial", 12), width=30)
         self.whitelist_entry.pack(side="left")
         self.whitelist_entry.insert(0, "You can leave this blank.")
         self.whitelist_entry.config(fg='grey')
-
-        whitelist_question_button = tk.Button(whitelist_frame, text="?", font=("Arial", 10), bg="#3c3c3c", fg="#ffffff")
+        whitelist_question_button = tk.Button(whitelist_frame, text="?", font=("Arial", 10), bg="#3c3c3c", fg="#ffffff", command=lambda: None, width=2, height=1, bd=1, relief="raised")
         whitelist_question_button.pack(side="left", padx=(5, 10))
-
         whitelist_tooltip_text = "Comma-separated list of subreddits to NOT process. E.g.: aww,funny,showerthoughts"
         self.create_tooltip(whitelist_question_button, whitelist_tooltip_text)
 
-        # Blacklist Subreddits input
-        blacklist_frame = tk.Frame(main_frame, bg="#2b2b2b")
-        blacklist_frame.pack(fill="x", pady=10)
-
+        blacklist_frame = tk.Frame(self.scrollable_frame, bg="#2b2b2b")
+        blacklist_frame.pack(fill="x", pady=content_padding_y, padx=content_padding_x)
         blacklist_label = tk.Label(blacklist_frame, text="Blacklist Subreddits:", bg="#2b2b2b", fg="#ffffff", font=("Arial", 13))
         blacklist_label.pack(side="left", padx=(0, 10))
         self.blacklist_entry = tk.Entry(blacklist_frame, bg="#3c3c3c", fg="#ffffff", font=("Arial", 12), width=30)
         self.blacklist_entry.pack(side="left")
         self.blacklist_entry.insert(0, "You can leave this blank.")
         self.blacklist_entry.config(fg='grey')
-
-        blacklist_question_button = tk.Button(blacklist_frame, text="?", font=("Arial", 10), bg="#3c3c3c", fg="#ffffff")
+        blacklist_question_button = tk.Button(blacklist_frame, text="?", font=("Arial", 10), bg="#3c3c3c", fg="#ffffff", command=lambda: None, width=2, height=1, bd=1, relief="raised")
         blacklist_question_button.pack(side="left", padx=(5, 10))
-
         blacklist_tooltip_text = "Comma-separated list of subreddits to EXCLUSIVELY process. E.g.: politics,worldnews,ukpolitics"
         self.create_tooltip(blacklist_question_button, blacklist_tooltip_text)
 
-        # Bind focus events to handle placeholder text
         self.whitelist_entry.bind("<FocusIn>", lambda event: self.on_entry_click(event, self.whitelist_entry))
         self.whitelist_entry.bind("<FocusOut>", lambda event: self.on_focus_out(event, self.whitelist_entry))
         self.blacklist_entry.bind("<FocusIn>", lambda event: self.on_entry_click(event, self.blacklist_entry))
         self.blacklist_entry.bind("<FocusOut>", lambda event: self.on_focus_out(event, self.blacklist_entry))
 
-        # Custom replacement text
-        custom_text_frame = tk.Frame(main_frame, bg="#2b2b2b")
-        custom_text_frame.pack(fill="x", pady=10)
-
+        # Custom Replacement Text
+        custom_text_frame = tk.Frame(self.scrollable_frame, bg="#2b2b2b")
+        custom_text_frame.pack(fill="x", pady=content_padding_y, padx=content_padding_x)
         custom_text_label = tk.Label(custom_text_frame, text="Custom replacement text:", bg="#2b2b2b", fg="#ffffff", font=("Arial", 13))
         custom_text_label.pack(side="left", padx=(0, 10))
-
         self.custom_text_entry = tk.Entry(custom_text_frame, bg="#3c3c3c", fg="#ffffff", font=("Arial", 12), width=30)
         self.custom_text_entry.pack(side="left")
         self.custom_text_entry.insert(0, "You can leave this blank.")
         self.custom_text_entry.config(fg='grey')
-
-        custom_text_question_button = tk.Button(custom_text_frame, text="?", font=("Arial", 10), bg="#3c3c3c", fg="#ffffff")
+        custom_text_question_button = tk.Button(custom_text_frame, text="?", font=("Arial", 10), bg="#3c3c3c", fg="#ffffff", command=lambda: None, width=2, height=1, bd=1, relief="raised")
         custom_text_question_button.pack(side="left", padx=(5, 10))
-
         custom_text_tooltip = "Enter custom text to replace your content.\nIf left blank, random text will replace your text."
         self.create_tooltip(custom_text_question_button, custom_text_tooltip)
 
-        # Bind focus events to handle placeholder text
         self.custom_text_entry.bind("<FocusIn>", lambda event: self.on_entry_click(event, self.custom_text_entry))
         self.custom_text_entry.bind("<FocusOut>", lambda event: self.on_focus_out(event, self.custom_text_entry))
 
-        # Date range options
-        date_frame = tk.Frame(main_frame, bg="#2b2b2b")
-        date_frame.pack(fill="x", pady=10)
-
+        # Date Range
+        date_frame = tk.Frame(self.scrollable_frame, bg="#2b2b2b")
+        date_frame.pack(fill="x", pady=content_padding_y, padx=content_padding_x)
         start_date_label = tk.Label(date_frame, text="Start Date:", bg="#2b2b2b", fg="#ffffff", font=("Arial", 13))
         start_date_label.pack(side="left", padx=(0, 10))
         self.start_date_entry = DateEntry(date_frame, width=12, background='darkblue', foreground='white', 
                                           borderwidth=2, date_pattern='yyyy-mm-dd')
         self.start_date_entry.pack(side="left", padx=(0, 20))
-        self.start_date_entry.delete(0, tk.END)  # Clear the default date
-
+        self.start_date_entry.delete(0, tk.END)
         end_date_label = tk.Label(date_frame, text="End Date:", bg="#2b2b2b", fg="#ffffff", font=("Arial", 13))
         end_date_label.pack(side="left", padx=(0, 10))
         self.end_date_entry = DateEntry(date_frame, width=12, background='darkblue', foreground='white', 
                                         borderwidth=2, date_pattern='yyyy-mm-dd')
         self.end_date_entry.pack(side="left")
-        self.end_date_entry.delete(0, tk.END)  # Clear the default date
-
-        date_question_button = tk.Button(date_frame, text="?", font=("Arial", 10), bg="#3c3c3c", fg="#ffffff")
+        self.end_date_entry.delete(0, tk.END)
+        date_question_button = tk.Button(date_frame, text="?", font=("Arial", 10), bg="#3c3c3c", fg="#ffffff", command=lambda: None, width=2, height=1, bd=1, relief="raised")
         date_question_button.pack(side="left", padx=(5, 10))
-
         date_tooltip_text = "Set date range for content processing. Leave blank to include all dates."
         self.create_tooltip(date_question_button, date_tooltip_text)
 
-        # Handle Reddit generated export folder
-        export_frame = tk.Frame(main_frame, bg="#2b2b2b")
-        export_frame.pack(fill="x", pady=10)
-
+        # Reddit Export Directory
+        export_frame = tk.Frame(self.scrollable_frame, bg="#2b2b2b")
+        export_frame.pack(fill="x", pady=(content_padding_y, content_padding_y*2), padx=content_padding_x) # Extra bottom padding
         export_label = tk.Label(export_frame, text="Reddit Export Directory:", 
                               bg="#2b2b2b", fg="#ffffff", font=("Arial", 13))
         export_label.pack(side="left", padx=(0, 10))
-
         self.export_directory_entry = tk.Entry(export_frame, bg="#3c3c3c", 
                                              fg="grey", font=("Arial", 12), width=30)
         self.export_directory_entry.pack(side="left")
         self.export_directory_entry.insert(0, "Optional: Select folder containing Reddit data export")
         self.export_directory_entry.config(fg='grey')
-
-        browse_button = tk.Button(export_frame, text="Browse", 
-                                command=self.select_directory,
-                                bg="#ffffff", fg="#000000")
+        browse_button = tk.Button(export_frame, text="Browse", command=self.select_directory, bg="#ffffff", fg="#000000")
         browse_button.pack(side="left", padx=(5, 5))
-
-        export_question_button = tk.Button(export_frame, text="?", 
-                                         font=("Arial", 10), bg="#3c3c3c", fg="#ffffff")
+        export_question_button = tk.Button(export_frame, text="?", font=("Arial", 10), bg="#3c3c3c", fg="#ffffff", command=lambda: None, width=2, height=1, bd=1, relief="raised")
         export_question_button.pack(side="left", padx=(5, 0))
-
         export_tooltip_text = (
             "This is optional. Handles content that Reddit's API does not retrieve."
             " Go to reddit.com/settings/data-request. Wait for Reddit's message,"
@@ -579,10 +590,15 @@ class RedditContentRemoverGUI:
         self.export_directory_entry.bind("<FocusOut>", 
             lambda event: self.on_focus_out(event, self.export_directory_entry))
 
-        # Removal button
-        self.start_button = tk.Button(main_frame, text="Start Content Removal", command=self.start_removal,
-                                    bg="#ffffff", fg="#000000", font=("Arial", 14, "bold"))
-        self.start_button.pack(pady=(20, 20), fill="x")
+        # Removal Button
+        self.button_container = tk.Frame(self.master, bg="#2b2b2b")
+        self.button_container.pack(fill="x", padx=20, pady=(5, 20))
+
+        self.start_button = tk.Button(self.button_container, text="Start Content Removal", command=self.start_removal, bg="#ffffff", fg="#000000", font=("Arial", 14, "bold"))
+        self.start_button.pack(fill="x", ipady=5)
+
+        self.master.update_idletasks()
+        canvas.configure(scrollregion=canvas.bbox("all"))
 
     def create_tooltip(self, widget: tk.Widget, text: str, max_width: int = 50) -> None:
         """

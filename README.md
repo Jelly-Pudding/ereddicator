@@ -133,9 +133,5 @@ If you don't want to install Python, you can use the `.exe` version of the scrip
 7. If you're using Google login, you'll be prompted to authorise via a browser. After successful authorisation, the refresh token will be saved for future use.
 8. Follow the on-screen instructions in the GUI to configure your preferences and start the content removal process.
 
-## Support Me
-Donations will help me with the development of this project.
-
-One-off donation: https://ko-fi.com/lolwhatyesme
-
-Patreon: https://www.patreon.com/lolwhatyesme
+## Buy Me a Coffee
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/K3K715TC1R)
