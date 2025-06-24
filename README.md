@@ -64,12 +64,18 @@ If you don't want to install Python, you can use the `.exe` version of the scrip
    - You can name it anything. It does not matter.
    - Choose "script" for personal use.
    - For the "redirect uri", put http://localhost:8080
+
+   ![Creating Reddit App](images/create-app.png)
+
    - After creation, the client_id is the string under "personal use script". For example, it may look like this: "AE9-zURLEvI1pze_rqH4Iw".
    - The client_secret is what appears next to "secret". It will look like this: "ZeqnEO_F21BrzzgOpb_es4kOfbhTww"
+
+   ![Finding Client ID and Secret](images/client-id-and-secret.png)
+
 3. Download the latest `.zip` file from the [Releases](https://github.com/Jelly-Pudding/ereddicator/releases/) page.
 4. Extract the contents of the `.zip` file to a folder.
 5. Run the `ereddicator.exe` file by double-clicking it. You may see `Windows protected your PC`. Just click on `More Info` and then click `Run anyway`. 
-6. A terminal will open. Do not close it and make sure it stays open when you use Ereddicator.
+6. A terminal window will open. **Keep this terminal window open and visible throughout the entire process.** This terminal displays authentication status, error messages, and progress updates. Do not close or minimise it.
 7. A GUI window will also open. Enter your Reddit API credentials into it.
    * **For traditional Reddit accounts**:
      * If you use Two-Factor Authentication, enter your 2FA code in the "Two Factor Code" field. If you don't use 2FA, leave this field as is.
@@ -106,8 +112,14 @@ If you don't want to install Python, you can use the `.exe` version of the scrip
    - You can name it anything. It does not matter.
    - Choose "script" for personal use.
    - For the "redirect uri", put http://localhost:8080
+
+   ![Creating Reddit App](images/create-app.png)
+
    - After creation, the client_id is the string under "personal use script". For example, it may look like this: "AE9-zURLEvI1pze_rqH4Iw".
    - The client_secret is what appears next to "secret". It will look like this: "ZeqnEO_F21BrzzgOpb_es4kOfbhTww"
+
+   ![Finding Client ID and Secret](images/client-id-and-secret.png)
+
 3. Create a file named `reddit_credentials.ini` in the same directory as the script.
 4. Add your Reddit API credentials to the file in one of the following formats:
 
@@ -130,8 +142,9 @@ If you don't want to install Python, you can use the `.exe` version of the scrip
    ```
 5. Navigate to the `src` directory.
 6. Run the script using Python: `python main.py`.
-7. If you're using Google login, you'll be prompted to authorise via a browser. After successful authorisation, the refresh token will be saved for future use.
-8. Follow the on-screen instructions in the GUI to configure your preferences and start the content removal process.
+7. Keep the terminal where you ran the Python command visible throughout the entire process. This terminal displays authentication status, error messages, and progress updates.
+8. If you're using Google login, you'll be prompted to authorise via a browser. After successful authorisation, the refresh token will be saved for future use.
+9. Follow the on-screen instructions in the GUI to configure your preferences and start the content removal process.
 
 ## Buy Me a Coffee
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/K3K715TC1R)

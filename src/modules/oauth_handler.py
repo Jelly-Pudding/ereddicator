@@ -31,17 +31,17 @@ class OAuthCallbackHandler(http.server.BaseHTTPRequestHandler):
             html_content = """
             <html>
             <head>
-                <title>Authentication Successful</title>
+                <title>Authorisation Received</title>
                 <style>
                     body { font-family: Arial, sans-serif; margin: 40px; text-align: center; }
-                    .success { color: #4CAF50; font-size: 24px; margin-bottom: 20px; }
+                    .processing { color: #2196F3; font-size: 24px; margin-bottom: 20px; }
                     .info { margin-bottom: 20px; }
                 </style>
             </head>
             <body>
-                <div class="success">Authentication Successful!</div>
-                <div class="info">You have successfully authenticated with Reddit.</div>
-                <div class="info">You can close this window and return to Ereddicator.</div>
+                <div class="processing">Authorisation Received.</div>
+                <div class="info">Reddit has authorised Ereddicator. Please wait while we complete the authentication process.</div>
+                <div class="info">You can close this window and return to Ereddicator to see the results.</div>
             </body>
             </html>
             """
@@ -51,7 +51,7 @@ class OAuthCallbackHandler(http.server.BaseHTTPRequestHandler):
             self.send_response(400)
             self.send_header('Content-type', 'text/html')
             self.end_headers()
-            
+
             error_message = query_components.get('error', ['Unknown error'])[0]
             html_content = f"""
             <html>
@@ -84,7 +84,7 @@ class OAuthServer:
     def __init__(self, port: int = 8080):
         """
         Initialise the OAuth server.
-        
+
         Args:
             port (int): The port to listen on. Defaults to 8080.
         """
@@ -98,7 +98,7 @@ class OAuthServer:
         class OAuthHTTPServer(socketserver.TCPServer):
             allow_reuse_address = True
             authorisation_code = None
-  
+
         self.server = OAuthHTTPServer(("localhost", self.port), OAuthCallbackHandler)
         self.server.timeout = 0.5  # Check for shutdown flag every half second
 
@@ -107,7 +107,7 @@ class OAuthServer:
                 self.server.handle_request()
                 if self.server.authorisation_code:
                     break
-   
+
         self.thread = threading.Thread(target=run_server)
         self.thread.daemon = True
         self.thread.start()
@@ -132,11 +132,11 @@ class RedditOAuth:
     """
     Handles the OAuth flow for Reddit authentication.
     """
-    def __init__(self, client_id: str, client_secret: str, redirect_uri: str = "http://localhost:8080", 
+    def __init__(self, client_id: str, client_secret: str, redirect_uri: str = "http://localhost:8080",
                  user_agent: str = "ereddicator"):
         """
-        Initialize the Reddit OAuth handler.
-        
+        Initialise the Reddit OAuth handler.
+
         Args:
             client_id (str): Reddit API client ID.
             client_secret (str): Reddit API client secret.
@@ -151,13 +151,13 @@ class RedditOAuth:
     def get_auth_url(self, scopes: list = None, state: str = "ereddicator", duration: str = "permanent") -> str:
         """
         Generate the authorisation URL.
-        
+
         Args:
-            scopes (list, optional): List of requested permissions. Defaults to ["identity", "edit", "history", 
+            scopes (list, optional): List of requested permissions. Defaults to ["identity", "edit", "history",
                                     "read", "vote", "save"].
             state (str, optional): State parameter for OAuth. Defaults to "ereddicator".
             duration (str, optional): Token duration. Defaults to "permanent".
-        
+
         Returns:
             str: The authorisation URL to send the user to.
         """
@@ -181,13 +181,13 @@ class RedditOAuth:
     def get_tokens(self, code: str) -> Dict[str, str]:
         """
         Exchange an authorisation code for access and refresh tokens.
-        
+
         Args:
             code (str): The authorisation code from Reddit.
-            
+
         Returns:
             Dict[str, str]: Dictionary containing the access_token and refresh_token.
-            
+
         Raises:
             Exception: If token exchange fails.
         """
@@ -268,11 +268,11 @@ class RedditOAuth:
             start_time = time.time()
             while not server.get_authorisation_code() and time.time() - start_time < 300:
                 time.sleep(0.5)
-   
+
             code = server.get_authorisation_code()
             if not code:
                 raise Exception("Did not receive authorisation code within the timeout period.")
-  
+
             # Exchange the code for tokens
             tokens = self.get_tokens(code)
             refresh_token = tokens.get("refresh_token")

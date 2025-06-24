@@ -59,8 +59,16 @@ class RedditAuth:
         root = tk.Tk()
         gui = CredentialsInputGUI(root)
         credentials = gui.get_credentials()
-        root.destroy()  # Ensure the window is destroyed after getting credentials
-        
+
+        try:
+            root.destroy()
+        except tk.TclError:
+            # Window was already destroyed (user closed it) which is fine.
+            pass
+
+        if not credentials:
+            raise Exception("No credentials provided. Authentication cancelled by user.")
+
         self.client_id = credentials["client id"]
         self.client_secret = credentials["client secret"]
 
@@ -77,8 +85,14 @@ class RedditAuth:
                 self.username, self.refresh_token = oauth.perform_oauth_flow()
                 print(f"Successfully authenticated as {self.username} using OAuth.")
             except Exception as e:
-                print(f"OAuth authentication failed: {e}")
-                sys.exit(1)
+                error_str = str(e).lower()
+                if "401" in error_str or "unauthorized" in error_str:
+                    error_msg = "OAuth: Invalid client ID or client secret. Please double-check your Reddit API credentials."
+                elif "timeout" in error_str or "did not receive" in error_str:
+                    error_msg = "OAuth: Timeout waiting for authorisation. Please try again and complete the authorisation in your browser within 5 minutes."
+                else:
+                    error_msg = f"OAuth: {e}"
+                raise Exception(error_msg)
         else:
             self.username = credentials["username"]
             self.password = credentials["password"]
@@ -136,8 +150,14 @@ class RedditAuth:
                 print(f"Successfully authenticated as {self.username}")
                 print(f"Refresh token saved to {self.file_path}")
             except Exception as e:
-                print(f"OAuth authentication failed: {e}")
-                sys.exit(1)
+                error_str = str(e).lower()
+                if "401" in error_str or "unauthorized" in error_str:
+                    error_msg = "OAuth: Invalid client ID or client secret. Please double-check your Reddit API credentials."
+                elif "timeout" in error_str or "did not receive" in error_str:
+                    error_msg = "OAuth: Timeout waiting for authorisation. Please try again and complete the authorisation in your browser within 5 minutes."
+                else:
+                    error_msg = f"OAuth: {e}"
+                raise Exception(error_msg)
         else:
             # Traditional username/password authentication
             self.username = config["reddit"]["username"].strip()
@@ -179,10 +199,6 @@ class RedditAuth:
                 # If username wasn't provided, get it from the API
                 if not self.username:
                     self.username = reddit.user.me().name
-                    print(f"Successfully authenticated as {self.username} using OAuth.")
-                # Only show success message if not already shown in prompt_credentials
-                elif not self.is_exe:
-                    print(f"Successfully authenticated as {self.username} using OAuth.")
             else:
                 if self.two_factor_code and self.two_factor_code != "None":
                     self.two_factor_code = self.two_factor_code.replace(" ", "")
@@ -197,31 +213,52 @@ class RedditAuth:
                     password=password,
                     user_agent=self.user_agent
                 )
-                print(f"Successfully authenticated as {self.username}.")
 
             # Verify authentication worked
             reddit.user.me()
 
+            if self.use_oauth:
+                print(f"Successfully authenticated as {self.username} using OAuth.")
+            else:
+                print(f"Successfully authenticated as {self.username}.")
+
             return reddit
 
         except FileNotFoundError:
-            print(f"Please create a file named '{self.file_path}' in the same directory "
-                  "as main.py with one of the following formats:\n\n"
-                  "For traditional Reddit accounts:\n"
-                  "[reddit]\n"
-                  "client_id = YOUR_CLIENT_ID\n"
-                  "client_secret = YOUR_CLIENT_SECRET\n"
-                  "username = YOUR_USERNAME\n"
-                  "password = YOUR_PASSWORD\n"
-                  "# Leave as None if you don't use two-factor authentication\n"
-                  "two_factor_code = None\n\n"
-                  "For Reddit accounts that use Google login (or other OAuth methods):\n"
-                  "[reddit]\n"
-                  "client_id = YOUR_CLIENT_ID\n"
-                  "client_secret = YOUR_CLIENT_SECRET\n"
-                  "# The refresh_token will be filled in automatically after your first login")
-            sys.exit(1)
+            error_msg = f"Please create a file named '{self.file_path}' in the same directory " \
+                        "as main.py in one of the following formats:\n\n" \
+                        "For traditional Reddit accounts:\n" \
+                        "[reddit]\n" \
+                        "client_id = YOUR_CLIENT_ID\n" \
+                        "client_secret = YOUR_CLIENT_SECRET\n" \
+                        "username = YOUR_USERNAME\n" \
+                        "password = YOUR_PASSWORD\n" \
+                        "# Leave as None if you don't use two-factor authentication\n" \
+                        "two_factor_code = None\n\n" \
+                        "For Reddit accounts that use Google login (or other OAuth methods):\n" \
+                        "[reddit]\n" \
+                        "client_id = YOUR_CLIENT_ID\n" \
+                        "client_secret = YOUR_CLIENT_SECRET\n" \
+                        "# The refresh_token will be filled in automatically after your first login"
+            print(error_msg)
+            raise FileNotFoundError(error_msg)
         except (OAuthException, ResponseException) as e:
-            print("Failed to authenticate with Reddit. Please check your credentials.")
-            print(f"Error details: {e}")
-            sys.exit(1)
+            error_str = str(e).lower()
+            if "only script apps may use password auth" in error_str or "unauthorized_client" in error_str:
+                error_msg = ("Wrong Reddit app type: You created a 'web app' but need a 'personal use script' app.\n"
+                           "Please go to https://www.reddit.com/prefs/apps and create a new app:\n"
+                           "1. Click 'Create App' or 'Create Another App'\n"
+                           "2. Choose 'script' (not 'web app')\n"
+                           "3. Set redirect URI to: http://localhost:8080")
+            elif "401" in error_str or "unauthorized" in error_str:
+                error_msg = "Invalid client ID, client secret, username, or password. Please double-check your Reddit API credentials."
+            elif "403" in error_str or "forbidden" in error_str:
+                error_msg = "Access forbidden. Your Reddit app might not have the required permissions."
+            elif "two-factor" in error_str or "2fa" in error_str:
+                error_msg = "Two-factor authentication required. Please enter your 2FA code."
+            elif "invalid_grant" in error_str:
+                error_msg = "Invalid username or password. Please double-check your Reddit login credentials. If you have two-factor authentication enabled also ensure your 2FA code is correct."
+            else:
+                error_msg = str(e)
+
+            raise Exception(error_msg)

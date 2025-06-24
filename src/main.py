@@ -101,11 +101,37 @@ def run_content_remover(preferences: UserPreferences, reddit: praw.Reddit, auth:
 def main():
     is_exe = getattr(sys, "frozen", False)
     if is_exe:
-        print("Please enter your credential information in the window that pops up. "
-              "Always leave this terminal displaying this message open when running Ereddicator.")
-    # Create an instance of RedditAuth and get the Reddit instance
-    auth = RedditAuth(is_exe=is_exe)
-    reddit = auth.get_reddit_instance()
+        print("Please enter your credential information in the window that pops up.\n"
+              "IMPORTANT: Keep this terminal window open and visible throughout the entire process.\n"
+              "This terminal will display authentication status, error messages, and progress updates.")
+
+    reddit = None
+    auth = None
+
+    # Keep trying authentication until successful or user gives up.
+    while reddit is None:
+        try:
+            # Create an instance of RedditAuth and get the Reddit instance
+            auth = RedditAuth(is_exe=is_exe)
+            reddit = auth.get_reddit_instance()
+        except Exception as e:
+            error_message = str(e)
+
+            if "cancelled by user" in error_message.lower() or "application has been destroyed" in error_message.lower():
+                print(f"\n{e}")
+                if is_exe:
+                    print("Press Enter to exit...")
+                    input()
+                return
+
+            print(f"\n{e}")
+            if is_exe:
+                print("\nWould you like to try again? The credentials window will reopen.")
+                print("If you want to quit close this terminal window.")
+                continue
+            else:
+                print("Please check your reddit_credentials.ini file and run the program again.")
+                return
 
     root = tk.Tk()
     root.tk.call("tk", "scaling", 1.0)  # This ensures consistent sizing across different DPI settings
