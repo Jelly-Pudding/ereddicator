@@ -11,6 +11,8 @@ import praw
 from prawcore import ResponseException
 from prawcore.exceptions import Forbidden, NotFound
 from modules.user_preferences import UserPreferences
+from modules.rate_limiter import SharedRateLimiter
+
 
 class RedditContentRemover:
     """
@@ -37,6 +39,7 @@ class RedditContentRemover:
         self.processed_ids_file = f"ereddicator_{self.username}_processed_ids.txt"
         self.processed_ids = self.load_processed_ids()
         self.interrupt_flag = False
+        self.rate_limiter = SharedRateLimiter(default_delay=0.0)
         self.ad_messages = [
             "Original content erased using Ereddicator.",
             "This content has been removed with Ereddicator.",
@@ -167,11 +170,13 @@ class RedditContentRemover:
             if ratelimit_sleep is not None:
                 sleep_time = ratelimit_sleep + 0.5
                 retry_message = f"Respecting API rate limit. Retrying in {sleep_time:.2f} seconds..."
+                self.rate_limiter.set_rate_limited(sleep_time)
             else:
-                sleep_time = (2 ** attempt) + (random.randint(0, 1000) / 1000)
+                sleep_time = min(60.0, (2 ** attempt) + (random.randint(0, 1000) / 1000))
                 retry_message = f"Rate limit likely (could not parse time). Retrying in {sleep_time:.2f} seconds..."
+                self.rate_limiter.set_rate_limited(sleep_time)
         else:
-             sleep_time = (2 ** attempt) + (random.randint(0, 1000) / 1000)
+             sleep_time = min(30.0, (2 ** attempt) + (random.randint(0, 1000) / 1000))
              retry_message = f"Retrying in {sleep_time:.2f} seconds..."
              retry_message_prefix = f"Error during {context}"
 
@@ -195,6 +200,7 @@ class RedditContentRemover:
         """Get item info, with retries for API errors."""
         for attempt in range(max_retries):
             try:
+                self.rate_limiter.wait_if_needed()
                 _ = item._fetch()
                 if isinstance(item, praw.models.Comment):
                     return (
@@ -260,6 +266,7 @@ class RedditContentRemover:
 
             for attempt in range(max_retries):
                 try:
+                    self.rate_limiter.wait_if_needed()
                     text_type = (
                         "custom" if replacement_text == self.preferences.custom_replacement_text
                         else "advertising" if replacement_text in self.ad_messages
@@ -348,6 +355,9 @@ class RedditContentRemover:
             if self.interrupt_flag: return (deleted_count, edited_count)
 
             try:
+                if not self.preferences.dry_run:
+                    self.rate_limiter.wait_if_needed()
+
                 action_performed = False
                 if item_type == "comments":
                     if self.preferences.delete_without_edit_comments:
@@ -641,6 +651,8 @@ class RedditContentRemover:
                          print(f"Invalid date value in row {processed_count}/{total_rows} (ID: {item_id})")
                          successful_load = True
                          break
+
+                     self.rate_limiter.wait_if_needed()
 
                      if filename == "comments.csv":
                          item = self.reddit.comment(id=item_id)
