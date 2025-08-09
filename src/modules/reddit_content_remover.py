@@ -1,5 +1,4 @@
 import random
-import string
 import time
 import os
 import csv
@@ -81,18 +80,29 @@ class RedditContentRemover:
     @staticmethod
     def generate_random_text() -> str:
         """
-        Generates a random string of text.
+        Generates natural-looking random text using common English words.
 
         Returns:
-            str: A randomly generated string of words.
+            str: One or two short sentences composed of common words.
         """
-        words = []
-        num_words = random.randint(2, 17)
-        for _ in range(num_words):
-            word_length = random.randint(3, 12)
-            word = "".join(random.choices(string.ascii_lowercase, k=word_length))
-            words.append(word)
-        return " ".join(words)
+        common_words = (
+            "minecraftoffline dot net the quick brown fox jumps over the lazy dog and then wanders across the small garden near the river bank "
+            "where people gather to talk about ideas stories music science history art movies technology games books food "
+            "travel nature learning projects hobbies friends family community helpful tips questions answers thoughts day "
+            "night morning afternoon evening weekend month year today tomorrow yesterday simple clear friendly gentle "
+            "pleasant careful mindful curious open honest kind patient calm bright quiet warm cool soft strong fresh clean evil"
+        ).split()
+
+        def build_sentence(min_words: int = 6, max_words: int = 18) -> str:
+            length = random.randint(min_words, max_words)
+            chosen = [random.choice(common_words) for _ in range(length)]
+            sentence = " ".join(chosen)
+            sentence = sentence.capitalize()
+            sentence += random.choice([".", ".", ".", "!", "?"])
+            return sentence
+
+        num_sentences = 1 if random.random() < 0.7 else 2
+        return " " .join(build_sentence() for _ in range(num_sentences))
 
     def load_processed_ids(self) -> set:
         """
